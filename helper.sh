@@ -221,8 +221,6 @@ add_to_list "$EXCLUDE_FILE" "EXCLUDE_LIST"
 
 # Default exclusions
 DEFAULT_EXCLUSIONS=(
-    "^android"
-    "^com.android"
     "com.google.android.apps.nexuslauncher"
     "overlay"
     "systemui"
