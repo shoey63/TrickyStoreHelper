@@ -292,5 +292,11 @@ else
         process_package_list "FORCE_LIST"
     fi
 fi
+# Ensure com.android.vending is always included
+if ! grep -qx "com.android.vending" "$TARGET_FILE"; then
+    echo "com.android.vending" >> "$TARGET_FILE"
+    sort -u "$TARGET_FILE" -o "$TARGET_FILE"
+    log_print 4 "com.android.vending was force-included in $TARGET_FILE"
+fi
 
 finish_success
