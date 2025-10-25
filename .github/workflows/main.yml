@@ -4,49 +4,75 @@ on:
   workflow_dispatch:
     inputs:
       create_release:
-        description: 'Create a release with ZIP asset?'
+        description: "Create a GitHub Release with ZIP asset?"
         required: false
-        default: 'false'
+        default: "false"
         type: choice
         options:
-          - 'false'
-          - 'true'
+          - "false"
+          - "true"
   push:
-    branches: main
+    branches:
+      - main
   pull_request:
-    branches: main
+    branches:
+      - main
 
 jobs:
   build:
-    runs-on: macos-26
+    name: Build & Package Module
+    runs-on: macos-latest
     permissions:
       contents: write
 
     steps:
-      - name: Check out
+      - name: 🧩 Checkout repository
         uses: actions/checkout@v5
         with:
-          submodules: 'recursive'
+          submodules: recursive
           fetch-depth: 0
 
-      - name: Upload CI module zip as artifact zip
+      - name: 🧹 Clean previous artifacts
+        run: |
+          rm -f TSHelper-release.zip
+          echo "Cleaning workspace complete."
+
+      - name: 📦 Create module ZIP
+        run: |
+          zip -r TSHelper-release.zip * -x ".git*" ".github/*" "README.md"
+
+      - name: 💾 Upload module as workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TrickyStorHelper_#${{ github.run_number }}
-          path: '*'
+          name: TrickyStoreHelper_CI_${{ github.run_number }}
+          path: TSHelper-release.zip
 
-      - name: Create release ZIP
-        if: ${{ github.event.inputs.create_release == 'true' }}
-        run: zip -r TSHelper-release.zip *
-
-      - name: Create or Upload Release
+      - name: 🚀 Create GitHub Release (optional)
         if: ${{ github.event.inputs.create_release == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
-          name: "CI Release #${{ github.run_number }}"
+          name: "TrickyStore Helper v${{ github.run_number }}"
+          body: |
+            ## 🚀 TrickyStore Helper CI Build #${{ github.run_number }}
+
+            Automated CI release built from the latest main branch.
+
+            ### 🧩 Module Info
+            - **ID:** trickystorehelper  
+            - **Version Code:** ${{ github.run_number }}
+            - **Author:** shoey63  
+            - **Base:** CaptainThrowback’s TrickyStore Helper
+
+            ### 🆕 Highlights
+            - Auto-update target.txt
+            - System app support (system.txt)
+            - Action button for instant updates
+            - Auto GMS + Play Store restart
+            - Improved boot logic
+
+            ---
+            *Built automatically by GitHub Actions.*
           files: TSHelper-release.zip
-          draft: false
-          prerelease: false
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
