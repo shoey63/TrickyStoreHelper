@@ -25,7 +25,6 @@ If not present, it’s automatically created with default values.
 ```
 FORCE_LEAF_HACK=false
 FORCE_CERT_GEN=false
-USE_DEFAULT_EXCLUSIONS=true
 ```
 
 #### Options
