@@ -34,7 +34,6 @@ USE_DEFAULT_EXCLUSIONS=true
 |---------|-------------|
 | `FORCE_LEAF_HACK` | Adds `?` to either all packages or those listed in `force.txt`. |
 | `FORCE_CERT_GEN`  | Adds `!` to either all packages or those listed in `force.txt`. |
-| `USE_DEFAULT_EXCLUSIONS` | Keeps the built-in exclusion list used by TrickyStore. Disable if you prefer to manage manually. |
 | `CUSTOM_LOGLEVEL` *(optional)* | Enables debug logging with the `TSHelper` tag in logcat. |
 
 ---
