@@ -37,7 +37,7 @@ jobs:
 
       - name: Create release ZIP
         if: ${{ github.event.inputs.create_release == 'true' }}
-        run: zip -r release.zip *
+        run: zip -r TSHelper-release.zip *
 
       - name: Create or Upload Release
         if: ${{ github.event.inputs.create_release == 'true' }}
@@ -45,7 +45,7 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: "CI Release #${{ github.run_number }}"
-          files: release.zip
+          files: TSHelper-release.zip
           draft: false
           prerelease: false
         env:
