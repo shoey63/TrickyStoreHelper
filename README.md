@@ -1,34 +1,74 @@
-# TrickyStore Helper
+# TrickyStore Helper (by CaptainThrowback, fork maintained by Shoey63)
 
-For adding more files to target.txt automatically on device boot.
+This helper module rebuilds `target.txt` for **TrickyStore** automatically at device boot (or via Action Button), 
+so spoofing targets stay consistent without manual edits.
 
-All files are stored in `/data/adb/tricky_store/helper` folder.
+It now supports:
+- All **user-installed apps**
+- Core Google components (`Play Store` and `Play Services`)
+- Optional **selected system apps** from `system.txt`
 
-Inside that folder, there are 4 files:
+---
 
-## config.txt
-This is where you can modify the default configuration options for the module.
-<details>
-<summary>Defaults</summary>
+## 📂 File Structure
 
-#### *FORCE_LEAF_HACK (default value "false")*
-- This adds "?" to either all package names, or ones defined in "force.txt"
+All files are stored in:
+/data/adb/tricky_store/helper
 
-#### *FORCE_CERT_GEN (default value "false")*
-- This adds "!" to either all package names, or ones defined in "force.txt"
+| File | Description |
+|------|--------------|
+| **config.txt** | Configures module behavior. |
+| **exclude.txt** | Lists packages to skip in `target.txt`. |
+| **force.txt** | Lists packages to apply force flags (`?` or `!`). |
+| **system.txt** | Lists system apps you want added to `target.txt`. |
+| **TSHelper.log** | Logs all helper operations. |
 
-#### *USE_DEFAULT_EXCLUSIONS (default value "true")*
-- This excludes a predefined default list of packages for target.txt, which should be irrelevant for spoofing a locked bootloader
+---
 
-#### *CUSTOM_LOGLEVEL (not included by default)*
-- This allows adding debug logging to be logged to logcat, with the tag "TSHelper". This may be helpful if there is an issue booting the device.
-</details>
+### `config.txt`
+Default contents:
+FORCE_LEAF_HACK=false FORCE_CERT_GEN=false
 
-## exclude.txt
-This file contains a list of packages that you want excluded from target.txt. This may be useful if some app is having issues because of spoofing. If no packages need to be excluded, then this file should remain empty.
+CUSTOM_LOGLEVEL can be added manually if needed
+#### FORCE_LEAF_HACK
+Appends `?` to package names — used for forcing Leaf Hack.
 
-## force.txt
-This file contains a list of specific packages that you want either the leaf hack or certificate generation applied to. For this list to be applied, either of those force options will need to be set to true (but not both). If you want to globally apply either, then this list should remain empty.
+#### FORCE_CERT_GEN
+Appends `!` to package names — used for forcing Certificate Generation.
 
-## TSHelper.log
-Log file for the module. ALL logging will appear in this file, regardless of the log level that is set.
+#### CUSTOM_LOGLEVEL
+(Optional) Enables additional debug logging to logcat with the tag `TSHelper`.
+
+---
+
+### `exclude.txt`
+List packages you don’t want spoofed.  
+If empty, all eligible packages are included.
+
+Example:
+com.google.android.tts com.android.chrome
+
+---
+
+### `force.txt`
+Define packages that should have either the Leaf Hack (`?`) or Certificate Generation (`!`) applied.
+
+Example:
+com.google.android.gms com.android.vending
+
+---
+
+### `system.txt`
+Allows you to include selected system apps in `target.txt`.  
+Created automatically if missing.
+
+Example:
+com.google.android.setupwizard com.android.settings com.google.android.inputmethod.latin
+
+🧰 Notes
+Permissions for .sh scripts are auto-verified at boot (fixed only if wrong).
+No “default exclusions” are used in this fork — all behavior is explicit and user-controlled.
+Safe to run manually at any time; no reboot or apply step required.
+🔧 Credits
+Original concept and base code: Captain_Throwback
+Fork enhancements and maintenance: Shoey63
