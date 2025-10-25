@@ -1,8 +1,8 @@
 MODPATH="${0%/*}"
 
 # ensure not running in busybox ash standalone shell
-set +o standalone
-unset ASH_STANDALONE
+#set +o standalone
+#unset ASH_STANDALONE
 
 sh $MODPATH/helper.sh -m || exit 1
 
