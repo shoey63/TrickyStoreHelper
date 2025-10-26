@@ -82,6 +82,6 @@ echo ""
 # Optional delay for KernelSU/APatch auto-close
 if [ "$KSU" = "true" -o "$APATCH" = "true" ] && \
    [ "$KSU_NEXT" != "true" ] && [ "$WKSU" != "true" ] && [ "$MMRL" != "true" ]; then
-    #echo "Closing dialog in 5 seconds..."
-    sleep 1
+    echo "Closing dialog in 10 seconds..."
+    sleep 10
 fi
