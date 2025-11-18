@@ -1,5 +1,6 @@
 name: Android CI
 
+# Only runs when you manually click "Run workflow"
 on:
   workflow_dispatch:
     inputs:
@@ -11,12 +12,6 @@ on:
         options:
           - "false"
           - "true"
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
   build:
@@ -26,18 +21,18 @@ jobs:
       contents: write
 
     steps:
-      - name: 🧩 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v5
         with:
           submodules: recursive
           fetch-depth: 0
 
-      - name: 🧹 Clean previous artifacts
+      - name: Clean previous artifacts
         run: |
           rm -f TrickyStoreHelper-release*.zip
           echo "Cleaning workspace complete."
 
-      - name: 📄 Extract version from module.prop
+      - name: Extract version from module.prop
         id: extract_version
         run: |
           VERSION=$(grep '^version=' module.prop | cut -d'=' -f2)
@@ -45,35 +40,35 @@ jobs:
           echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
           echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
 
-      - name: 📦 Create module ZIP
+      - name: Create module ZIP
         run: |
           zip -r TrickyStoreHelper-release-${{ env.MODULE_VERSION }}.zip * -x ".git*" ".github/*" "README.md"
 
-      - name: 💾 Upload module as workflow artifact
+      - name: Upload module as workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: TrickyStoreHelper_CI_${{ github.run_number }}
           path: '*'
 
-      - name: 🚀 Create GitHub Release (optional)
-        if: ${{ github.event.inputs.create_release == 'true' }}
+      - name: Create GitHub Release (optional)
+        if: ${{ inputs.create_release == 'true' }}        # ← note the syntax change here
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.MODULE_VERSION }}
           name: "TrickyStoreHelper ${{ env.MODULE_VERSION }}"
           body: |
-            ## 🚀 TrickyStoreHelper ${{ env.MODULE_VERSION }}
+            ## TrickyStoreHelper ${{ env.MODULE_VERSION }}
 
             Automated CI release built from the latest main branch.
 
-            ### 🧩 Module Info
+            ### Module Info
             - **ID:** trickystorehelper  
             - **Version:** ${{ env.MODULE_VERSION }}
             - **Version Code:** ${{ env.MODULE_VERSION_CODE }}
             - **Author:** shoey63  
             - **Base:** CaptainThrowback’s TrickyStore Helper
 
-            ### 🆕 Highlights
+            ### Highlights
             - Auto-update target.txt
             - System app support (system.txt)
             - Action button for instant updates
