@@ -1,6 +1,6 @@
+# .github/workflows/main.yml
 name: Android CI
 
-# Only runs when you manually click "Run workflow"
 on:
   workflow_dispatch:
     inputs:
@@ -27,39 +27,43 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Clean previous artifacts
-        run: |
-          rm -f TrickyStoreHelper-release*.zip
-          echo "Cleaning workspace complete."
-
       - name: Extract version from module.prop
-        id: extract_version
         run: |
           VERSION=$(grep '^version=' module.prop | cut -d'=' -f2)
           VERSION_CODE=$(grep '^versionCode=' module.prop | cut -d'=' -f2)
           echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
           echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
 
-      - name: Create module ZIP
-        run: |
-          zip -r TrickyStoreHelper-release-${{ env.MODULE_VERSION }}.zip * -x ".git*" ".github/*" "README.md"
-
-      - name: Upload module as workflow artifact
+      # CI artifact — keeps the exact name you already know and love
+      - name: Upload CI artifact (clean module)
         uses: actions/upload-artifact@v4
         with:
           name: TrickyStoreHelper_CI_${{ github.run_number }}
-          path: '*'
+          path: |
+            *
+            !.git
+            !.github
+            !README.md
+            !*.zip
+            !.gitignore
 
-      - name: Create GitHub Release (optional)
-        if: ${{ inputs.create_release == 'true' }}        # ← note the syntax change here
+      # Only when publishing an official release → create a clearly named ZIP
+      - name: Create official release ZIP
+        if: ${{ inputs.create_release == 'true' }}
+        run: |
+          zip -r TrickyStoreHelper-${{ env.MODULE_VERSION }}-release.zip \
+            module.prop service.sh customize.sh system.txt target.txt META-INF/** \
+            -x "*.git*" ".github/*" "README.md" ".gitignore" "*.zip"
+
+      # Publish the release with the -release suffix so it's unmistakable
+      - name: Create GitHub Release
+        if: ${{ inputs.create_release == 'true' }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.MODULE_VERSION }}
           name: "TrickyStoreHelper ${{ env.MODULE_VERSION }}"
           body: |
             ## TrickyStoreHelper ${{ env.MODULE_VERSION }}
-
-            Automated CI release built from the latest main branch.
 
             ### Module Info
             - **ID:** trickystorehelper  
@@ -77,6 +81,6 @@ jobs:
 
             ---
             *Built automatically by GitHub Actions.*
-          files: TrickyStoreHelper-release-${{ env.MODULE_VERSION }}.zip
+          files: TrickyStoreHelper-${{ env.MODULE_VERSION }}-release.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
