@@ -165,6 +165,29 @@ add_to_list() {
     fi
 }
 
+# New function to include packages from force.txt that were excluded by default
+force_include_system_apps() {
+    # This function ensures that any package listed in force.txt exists 
+    # in target.txt, even if it was excluded by USE_DEFAULT_EXCLUSIONS=true.
+    
+    # 1. Get a list of all installed packages on the system
+    ALL_SYSTEM_PACKAGES=$(pm list packages | cut -d ":" -f 2)
+
+    for force_package in "${FORCE_LIST[@]}"
+    do
+        # Check if the force package exists on the system
+        if echo "$ALL_SYSTEM_PACKAGES" | grep -q "^$force_package$"; then
+            # Check if the force package is already in the generated target.txt
+            if ! grep -q "^$force_package$" "$TARGET_FILE"; then
+                log_print 4 "FORCE_INCLUDE: Adding system app '$force_package' from force.txt."
+                echo "$force_package" >> "$TARGET_FILE"
+            fi
+        fi
+    done
+    # Re-sort the file after adding packages to keep it clean
+    sort "$TARGET_FILE" -o "$TARGET_FILE"
+}
+
 process_package_list() {
     while read package
     do
@@ -219,15 +242,7 @@ finish_success() {
 # Use the above flags to choose which manual mode should be used
 add_to_list "$EXCLUDE_FILE" "EXCLUDE_LIST"
 
-# Default exclusions
-DEFAULT_EXCLUSIONS=(
-    "^android"
-    "^com.android"
-    "com.google.android.apps.nexuslauncher"
-    "overlay"
-    "systemui"
-    "webview"
-)
+# Default exclusion logic block removed, only config check remains.
 if [ -f "$CONFIG_FILE" ]
 then
     USE_DEFAULT_EXCLUSIONS=$(grep '^USE_DEFAULT_EXCLUSIONS=' "$CONFIG_FILE" | cut -d '=' -f 2)
@@ -235,10 +250,6 @@ fi
 if [ -z "$USE_DEFAULT_EXCLUSIONS" ]
 then
     USE_DEFAULT_EXCLUSIONS=true
-fi
-if [ "$USE_DEFAULT_EXCLUSIONS" = "true" ]
-then
-    DEFAULT_EXCLUSIONS_LIST=$(printf '%s|' "${DEFAULT_EXCLUSIONS[@]}")
 fi
 
 # DEBUG: Base Logging
@@ -256,12 +267,31 @@ log_print 4 "Boot complete. $SCRIPTNAME processing "
 # Location of TrickyStore files
 TARGET_FILE="$TS_FOLDER/target.txt"
 
-# Add ALL the packages to target.txt
-if [ -n "$DEFAULT_EXCLUSIONS_LIST" ]
+# Generate target.txt
+if [ "$USE_DEFAULT_EXCLUSIONS" = "true" ]
 then
-    pm list packages | cut -d ":" -f 2 | grep -Ev "${DEFAULT_EXCLUSIONS_LIST%?}" | sort > "$TARGET_FILE"
+    log_print 4 "Generating list: User Apps, Play Store, and Play Services only..."
+    { 
+        # 1. List 3rd party apps (non-system)
+        pm list packages -3; 
+        
+        # 2. Explicitly add Play Store
+        pm list packages com.android.vending; 
+        
+        # 3. Explicitly add Google Play Services
+        pm list packages com.google.android.gms; 
+    } | cut -d ":" -f 2 | sort | uniq > "$TARGET_FILE"
 else
+    # This path already includes ALL system apps.
+    log_print 4 "Generating list: ALL packages..."
     pm list packages | cut -d ":" -f 2 | sort > "$TARGET_FILE"
+fi
+
+# CONDITIONAL FORCE-INCLUDE LOGIC
+# We only need to force-include system apps if default exclusions were active
+# AND the user actually put something in force.txt.
+if [ "$USE_DEFAULT_EXCLUSIONS" = "true" ] && (( ${#FORCE_LIST[@]} != 0 )); then
+    force_include_system_apps
 fi
 
 # Remove excluded packages
