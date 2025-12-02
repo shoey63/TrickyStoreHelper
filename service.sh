@@ -1,9 +1,21 @@
 #!/system/bin/sh
+# TrickyStore Helper - service.sh
 
-MODDIR=${0%/*}
+MODDIR="${0%/*}"
+HELPER="$MODDIR/helper.sh"
 
-# Wait for boot_completed
-resetprop -w sys.boot_completed 0 > /dev/null 2>&1
+#──────────────────────────────
+# Fix permissions only if needed
+#──────────────────────────────
+for f in "$MODDIR"/*.sh; do
+    [ -f "$f" ] || continue
+    CUR=$(stat -c "%a" "$f" 2>/dev/null)
+    if [ "$CUR" != "755" ]; then
+        chmod 755 "$f"
+    fi
+done
 
-# Run helper script using system sh
-/system/bin/sh "$MODDIR/helper.sh"
+#──────────────────────────────
+# Run helper at boot
+#──────────────────────────────
+sh "$HELPER" boot &
