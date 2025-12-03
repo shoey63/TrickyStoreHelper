@@ -76,11 +76,6 @@ if [ ! -f "$HELPER_SH" ]; then
     exit 1
 fi
 
-# Ensure executable permissions
-if [ ! -x "$HELPER_SH" ]; then
-    chmod 755 "$HELPER_SH" 2>/dev/null
-fi
-
 #--------------------------------------------------------------------
 # Run Helper Script (CORRECT shell!)
 #--------------------------------------------------------------------
@@ -91,7 +86,8 @@ RET=$?
 if [ "$RET" != "0" ]; then
     echo ""
     echo "❌ helper.sh FAILED (exit code $RET)"
-    echo "See: /data/adb/tricky_store/helper/TSHelper.log"
+    echo "⚠️ FORCE flags must not be both set to true"
+    echo "Check: /data/adb/tricky_store/helper/config.txt"
     sleep 4
     exit $RET
 fi
