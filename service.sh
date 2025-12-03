@@ -1,21 +1,39 @@
 #!/system/bin/sh
-# TrickyStore Helper - service.sh
 
-MODDIR="${0%/*}"
-HELPER="$MODDIR/helper.sh"
+MODDIR=${0%/*}
+CONFIG_FILE="/data/adb/tricky_store/helper/config.txt"
 
-#──────────────────────────────
-# Fix permissions only if needed
-#──────────────────────────────
+# Wait for boot_completed (safe loop)
+while [ "$(getprop sys.boot_completed)" != "1" ]; do
+    sleep 1
+done
+
+# Fix permissions
 for f in "$MODDIR"/*.sh; do
     [ -f "$f" ] || continue
     CUR=$(stat -c "%a" "$f" 2>/dev/null)
-    if [ "$CUR" != "755" ]; then
-        chmod 755 "$f"
-    fi
+    [ "$CUR" != "755" ] && chmod 755 "$f"
 done
 
-#──────────────────────────────
-# Run helper at boot
-#──────────────────────────────
-sh "$HELPER" boot &
+# -------------------------------------------------------------------
+# CONFIG SAFETY FIX
+# If both flags are true, force-reset to false/false
+# -------------------------------------------------------------------
+if [ -f "$CONFIG_FILE" ]; then
+    FORCE_LEAF_HACK=$(grep '^FORCE_LEAF_HACK=' "$CONFIG_FILE" | cut -d '=' -f 2)
+    FORCE_CERT_GEN=$(grep '^FORCE_CERT_GEN=' "$CONFIG_FILE" | cut -d '=' -f 2)
+
+    if [ "$FORCE_LEAF_HACK" = "true" ] && [ "$FORCE_CERT_GEN" = "true" ]; then
+        # Automatically repair config to prevent helper abort
+        sed -i 's/^FORCE_LEAF_HACK=.*/FORCE_LEAF_HACK=false/' "$CONFIG_FILE"
+        sed -i 's/^FORCE_CERT_GEN=.*/FORCE_CERT_GEN=false/' "$CONFIG_FILE"
+
+        echo "[TSHelper] Auto-fixed invalid config at boot." \
+            >> /data/adb/tricky_store/helper/bootlog.txt
+    fi
+fi
+
+# -------------------------------------------------------------------
+# Run helper script
+# -------------------------------------------------------------------
+/system/bin/sh "$MODDIR/helper.sh"
