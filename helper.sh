@@ -1,326 +1,336 @@
 #!/system/bin/sh
-#
-MODDIR=${0%/*}
-#
-# TrickyStore Helper Script by Captain_Throwback
-#
-# Add all installed packages to target.txt at boot
-#
-#
-# The below variable shouldn't need to be changed
-# unless you want to call the log/tag something else
-SCRIPTNAME="TSHelper"
+# helper.sh — TrickyStore Helper (UI mode with --ui, silent otherwise)
+MODDIR="${0%/*}"
 
-# Module files
+# Paths
 TS_FOLDER="/data/adb/tricky_store"
 TS_HELPER="$TS_FOLDER/helper"
+TARGET_FILE="$TS_FOLDER/target.txt"
+LOG_FILE="$TS_HELPER/helper.log"
 CONFIG_FILE="$TS_HELPER/config.txt"
 EXCLUDE_FILE="$TS_HELPER/exclude.txt"
 FORCE_FILE="$TS_HELPER/force.txt"
-LOG_FILE="$TS_HELPER/$SCRIPTNAME.log"
 
-# Prepare the folders
-if [ -d "$TS_FOLDER" ]
-then
-    mkdir -p "$TS_HELPER"
-else
-    FATAL_ERROR="TrickyStore folder not found. Please install TrickyStore to use this module."
-    log -p "F" -t "$SCRIPTNAME" "$FATAL_ERROR"
-    echo "$FATAL_ERROR"
+# --------------------------------------------------------------------
+# Logging helper (LEVEL MESSAGE) — append-only
+# --------------------------------------------------------------------
+log() {
+    LEVEL="$1"; shift
+    MESSAGE="$*"
+    printf "%s [%s] %s\n" "$(date '+%F %T')" "$LEVEL" "$MESSAGE" >> "$LOG_FILE"
+}
+
+# --------------------------------------------------------------------
+# UI-print helper: logs always, prints only when UI_MODE=true
+# --------------------------------------------------------------------
+ui_print() {
+    LEVEL="$1"; shift
+    MSG="$*"
+    log "$LEVEL" "$MSG"
+    if [ "$UI_MODE" = "true" ]; then
+        printf "%s\n" "$MSG"
+    fi
+}
+
+# --------------------------------------------------------------------
+# Determine UI mode: helper.sh --ui  => UI_MODE=true; else silent
+# --------------------------------------------------------------------
+UI_MODE="false"
+if [ "$1" = "--ui" ]; then
+    UI_MODE="true"
+fi
+
+# Ensure helper folder exists
+if [ ! -d "$TS_HELPER" ]; then
+    mkdir -p "$TS_HELPER" 2>/dev/null || true
+fi
+
+# Ensure log file exists (create if missing)
+[ -f "$LOG_FILE" ] || : > "$LOG_FILE" 2>/dev/null
+
+log "I" "helper.sh started (UI_MODE=$UI_MODE)"
+
+# --------------------------------------------------------------------
+# Fatal only if the main TS_FOLDER doesn't exist
+# --------------------------------------------------------------------
+if [ ! -d "$TS_FOLDER" ]; then
+    log "F" "TrickyStore folder missing: $TS_FOLDER — abort."
+    if [ "$UI_MODE" = "true" ]; then
+        echo "FATAL: TrickyStore folder missing at $TS_FOLDER"
+        sleep 2
+    fi
     exit 1
 fi
 
-# Set default log level
-DEFAULT_LOGLEVEL=3
-# 0 No logs printed
-# 1 Fatal only
-# 2 Fatal and Errors
-# 3 Fatal, Errors, and Warnings
-# 4 Fatal, Errors, Warnings, and Information
-# 5 Fatal, Errors, Warnings, Information, and Debugging
-# 6 All logs printed
-if [ -f "$CONFIG_FILE" ]
-then
-    CUSTOM_LOGLEVEL=$(grep '^CUSTOM_LOGLEVEL=' $CONFIG_FILE | cut -d '=' -f 2)
-fi
-if [ -n "$CUSTOM_LOGLEVEL" ]
-then
-	__VERBOSE="$CUSTOM_LOGLEVEL"
-else
-	__VERBOSE="$DEFAULT_LOGLEVEL"
-fi
+# --------------------------------------------------------------------
+# Read config (whitespace tolerant)
+# --------------------------------------------------------------------
+ORIG_FORCE_LEAF_HACK=""
+ORIG_FORCE_CERT_GEN=""
+FORCE_LEAF_HACK="false"
+FORCE_CERT_GEN="false"
+USE_DEFAULT_EXCLUSIONS="true"
 
-# Exit codes:
-# 0 Success
-# 1 TrickyStore folder missing
-# 2 Leaf Hack & Cert Gen both set to true
-
-# Function for logging to logcat and log file
-log_print()
-{
-	case $1 in
-		0)
-			# S: Silent (highest priority, where nothing is ever printed)
-			LOG_LEVEL="S"
-			;;
-		1)
-			# F: Fatal
-			LOG_LEVEL="F"
-			;;
-		2)
-			# E: Error
-			LOG_LEVEL="E"
-			;;
-		3)
-			# W: Warning
-			LOG_LEVEL="W"
-			;;
-		4)
-			# I: Info
-			LOG_LEVEL="I"
-			;; 
-		5)
-			# D: Debug
-			LOG_LEVEL="D"
-			;;
-		6)
-			# V: Verbose (lowest priority)
-			LOG_LEVEL="V"
-			;;
-	esac
-	if [ "$__VERBOSE" -ge "$1" ]
-    then
-		log -p "$LOG_LEVEL" -t "$SCRIPTNAME" "$2"
-	fi
-	echo "$(date '+%m-%d %T.%3N') $LOG_LEVEL $SCRIPTNAME: $2" >> "$LOG_FILE" 
-}
-
-# Clear old files
-rm -rf "$LOG_FILE"
-rm -rf "$TARGET_TMP"
-rm -rf "$TARGET_FILE"
-
-# DEBUG: Base Logging
-log_print 5 "LOGLEVEL=$__VERBOSE"
-
-# NOTE: Only ONE of the below options can be set to true! 
-# Leaving both options set to false will use auto mode,
-# which is suitable for most devices and packages
-#
-# If any packages require manual leaf cert hack
-# then set below flag to "true" (adds "?" to end of package name)
-# If all packages should use option, then leave FORCE_LIST blank
-# and make sure /data/adb/tricky_store/helper/force.txt is not present
-# (more info below)
-if [ -f "$CONFIG_FILE" ]
-then
-    FORCE_LEAF_HACK=$(grep '^FORCE_LEAF_HACK=' "$CONFIG_FILE" | cut -d '=' -f 2)
-fi
-if [ -z "$FORCE_LEAF_HACK" ]
-then
-    FORCE_LEAF_HACK=false
-fi
-# DEBUG: Base Logging
-log_print 5 "FORCE_LEAF_HACK=$FORCE_LEAF_HACK"
-
-# If any packages require manual certificate generation
-# then set below flag to "true" (adds "!" to end of package name)
-# If all packages should use option, then leave FORCE_LIST blank
-# and make sure /data/adb/tricky_store/helper/force.txt is not present
-# (more info below)
-if [ -f "$CONFIG_FILE" ]
-then
-    FORCE_CERT_GEN=$(grep '^FORCE_CERT_GEN=' "$CONFIG_FILE" | cut -d '=' -f 2)
-fi
-if [ -z "$FORCE_CERT_GEN" ]
-then
-    FORCE_CERT_GEN=false
-fi
-# DEBUG: Base Logging
-log_print 5 "FORCE_CERT_GEN=$FORCE_CERT_GEN"
-
-if $FORCE_LEAF_HACK && $FORCE_CERT_GEN
-    then
-        log_print 1 "Leaf hack and Certificate generation both set to true."
-        log_print 1 "Set one or both to false to run properly. Script exiting."
-        exit 2
-fi
-
-add_to_list() {
-    if [ -f "$1" ]
-    then
-        PACKAGE_LIST=()
-        while IFS='' read -r package || [ -n "$package" ]
-        do
-            PACKAGE_LIST+=("$package")
-        done < "$1"
-        case "$2" in
-            "EXCLUDE_LIST")
-                EXCLUDE_LIST=("${PACKAGE_LIST[@]}")
-                ;;
-            "FORCE_LIST")
-                FORCE_LIST=("${PACKAGE_LIST[@]}")
-                ;;
+if [ -f "$CONFIG_FILE" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+        L="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        case "$L" in
+            ''|\#*) continue ;;
         esac
+        key="$(echo "$L" | sed 's/[[:space:]]*=.*$//')"
+        val="$(echo "$L" | sed 's/^.*=[[:space:]]*//')"
+        key="$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        val="$(echo "$val" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        case "$key" in
+            FORCE_LEAF_HACK) ORIG_FORCE_LEAF_HACK="$val"; FORCE_LEAF_HACK="$val" ;;
+            FORCE_CERT_GEN)  ORIG_FORCE_CERT_GEN="$val";  FORCE_CERT_GEN="$val"  ;;
+            USE_DEFAULT_EXCLUSIONS) USE_DEFAULT_EXCLUSIONS="$val" ;;
+        esac
+    done < "$CONFIG_FILE"
+fi
+
+[ -z "$FORCE_LEAF_HACK" ] && FORCE_LEAF_HACK="false"
+[ -z "$FORCE_CERT_GEN" ] && FORCE_CERT_GEN="false"
+[ -z "$USE_DEFAULT_EXCLUSIONS" ] && USE_DEFAULT_EXCLUSIONS="true"
+
+# --------------------------------------------------------------------
+# If both flags true: neutralize in-memory only, log + UI warning
+# --------------------------------------------------------------------
+if [ "$FORCE_LEAF_HACK" = "true" ] && [ "$FORCE_CERT_GEN" = "true" ]; then
+    # keep original strings for display
+    ORIG1="$FORCE_LEAF_HACK"
+    ORIG2="$FORCE_CERT_GEN"
+    FORCE_LEAF_HACK="false"
+    FORCE_CERT_GEN="false"
+    log "W" "Config anomaly: FORCE_LEAF_HACK=true & FORCE_CERT_GEN=true detected. Neutralized in-memory for this run."
+    if [ "$UI_MODE" = "true" ]; then
+        echo ""
+        echo "🚨🚨🚨  WARNING — UNSAFE CONFIGURATION DETECTED  🚨🚨🚨"
+        echo ""
+        echo "Both FORCE_LEAF_HACK and FORCE_CERT_GEN are TRUE in:"
+        echo "    $CONFIG_FILE"
+        echo ""
+        echo "This run will proceed with both flags set to FALSE in memory only."
+        echo "To make a permanent change, edit the file above and set one flag to false."
+        echo ""
+        echo "-------------------------------------------------------------"
+        echo ""
+        sleep 2
     fi
-}
+fi
 
-# New function to include packages from force.txt that were excluded by default
-force_include_system_apps() {
-    # This function ensures that any package listed in force.txt exists 
-    # in target.txt, even if it was excluded by USE_DEFAULT_EXCLUSIONS=true.
-    
-    # 1. Get a list of all installed packages on the system
-    ALL_SYSTEM_PACKAGES=$(pm list packages | cut -d ":" -f 2)
+log "I" "Config: FORCE_LEAF_HACK=${FORCE_LEAF_HACK} (orig=${ORIG_FORCE_LEAF_HACK:-n/a}) FORCE_CERT_GEN=${FORCE_CERT_GEN} (orig=${ORIG_FORCE_CERT_GEN:-n/a}) USE_DEFAULT_EXCLUSIONS=${USE_DEFAULT_EXCLUSIONS}"
 
-    for force_package in "${FORCE_LIST[@]}"
-    do
-        # Check if the force package exists on the system
-        if echo "$ALL_SYSTEM_PACKAGES" | grep -q "^$force_package$"; then
-            # Check if the force package is already in the generated target.txt
-            if ! grep -q "^$force_package$" "$TARGET_FILE"; then
-                log_print 4 "FORCE_INCLUDE: Adding system app '$force_package' from force.txt."
-                echo "$force_package" >> "$TARGET_FILE"
+# --------------------------------------------------------------------
+# Count force/exclude entries for UI
+# --------------------------------------------------------------------
+FORCE_COUNT=0
+EXCLUDE_COUNT=0
+if [ -f "$FORCE_FILE" ]; then
+    FORCE_COUNT=$(grep -v '^$' "$FORCE_FILE" 2>/dev/null | wc -l 2>/dev/null || echo 0)
+fi
+if [ -f "$EXCLUDE_FILE" ]; then
+    EXCLUDE_COUNT=$(grep -v '^$' "$EXCLUDE_FILE" 2>/dev/null | wc -l 2>/dev/null || echo 0)
+fi
+
+# --------------------------------------------------------------------
+# UI Header (UI_MODE only) — plain newlines (no ANSI escapes)
+# --------------------------------------------------------------------
+if [ "$UI_MODE" = "true" ]; then
+    echo
+    echo
+    echo
+    echo "======================================="
+    echo "        ⭐ TrickyStore Helper ⭐"
+    echo "======================================="
+    echo ""
+    sleep 0.2
+    echo "📄 Loaded configuration:"
+    printf " • %-25s %s\n" "FORCE_LEAF_HACK:" "$FORCE_LEAF_HACK"
+    if [ -n "$ORIG_FORCE_LEAF_HACK" ] && [ "$ORIG_FORCE_LEAF_HACK" != "$FORCE_LEAF_HACK" ]; then
+        printf "   (temporarily changed from: %s)\n" "$ORIG_FORCE_LEAF_HACK"
+    fi
+    printf " • %-25s %s\n" "FORCE_CERT_GEN:" "$FORCE_CERT_GEN"
+    if [ -n "$ORIG_FORCE_CERT_GEN" ] && [ "$ORIG_FORCE_CERT_GEN" != "$FORCE_CERT_GEN" ]; then
+        printf "   (temporarily changed from: %s)\n" "$ORIG_FORCE_CERT_GEN"
+    fi
+    printf " • %-25s %s\n" "USE_DEFAULT_EXCLUSIONS:" "$USE_DEFAULT_EXCLUSIONS"
+    printf " • %-25s %s\n" "FORCE.TXT entries:" "$FORCE_COUNT"
+    printf " • %-25s %s\n" "EXCLUDE.TXT entries:" "$EXCLUDE_COUNT"
+    echo ""
+    echo "---------------------------------------"
+    echo "▶️  Preparing to build target.txt..."
+    echo ""
+    sleep 0.5
+fi
+
+# --------------------------------------------------------------------
+# Ensure target file exists (create if missing) — user must always have it
+# --------------------------------------------------------------------
+if [ ! -f "$TARGET_FILE" ]; then
+    : > "$TARGET_FILE" 2>/dev/null || touch "$TARGET_FILE" 2>/dev/null || true
+    ui_print "I" "Created missing target file: $TARGET_FILE"
+fi
+
+# --------------------------------------------------------------------
+# Generate base target list
+# --------------------------------------------------------------------
+if [ "$USE_DEFAULT_EXCLUSIONS" = "true" ]; then
+    ui_print "I" "Generating target.txt: user apps + Play Store + Play Services"
+    {
+        pm list packages -3 2>/dev/null
+        pm list packages com.android.vending 2>/dev/null
+        pm list packages com.google.android.gms 2>/dev/null
+    } | cut -d: -f2 | sed '/^$/d' | sort -u > "$TARGET_FILE"
+else
+    ui_print "I" "Generating target.txt: all packages"
+    pm list packages 2>/dev/null | cut -d: -f2 | sed '/^$/d' | sort -u > "$TARGET_FILE"
+fi
+
+# --------------------------------------------------------------------
+# FORCE INCLUDE: restore original working behaviour (Option 1)
+# - Cache the system package list once (portable POSIX)
+# - Iterate force.txt lines and add the package to target.txt
+#   if it's installed on the system and not already present
+# - This respects Option 1: forced packages included even if they are system apps
+# --------------------------------------------------------------------
+if [ -f "$FORCE_FILE" ]; then
+    # Cache all installed packages once
+    ALL_SYSTEM_PACKAGES="$(pm list packages 2>/dev/null | cut -d: -f2 || true)"
+
+    # read force.txt lines safely
+    while IFS= read -r fline || [ -n "$fline" ]; do
+        fpkg="$(echo "$fline" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        case "$fpkg" in
+            ''|\#*) continue ;;
+        esac
+
+        # Check existence using cached package list (works across boot/UI contexts)
+        echo "$ALL_SYSTEM_PACKAGES" | grep -xqF "$fpkg"
+        FOUND=$?
+
+        if [ "$FOUND" -eq 0 ]; then
+            # package is installed — add if missing
+            if ! grep -xqF "$fpkg" "$TARGET_FILE" 2>/dev/null; then
+                echo "$fpkg" >> "$TARGET_FILE"
+                log "I" "FORCE_INCLUDE: Added system app '$fpkg' from force.txt"
+                if [ "$UI_MODE" = "true" ]; then
+                    printf "FORCE_INCLUDE: Added %s\n" "$fpkg"
+                fi
+            else
+                log "D" "FORCE_INCLUDE: $fpkg already present in target.txt"
+            fi
+        else
+            # Not found in pm list — depending on user preference Option 1 still allows forced inclusion.
+            # We will still add it (Option 1), but log that pm did not list it.
+            if ! grep -xqF "$fpkg" "$TARGET_FILE" 2>/dev/null; then
+                echo "$fpkg" >> "$TARGET_FILE"
+                log "W" "FORCE_INCLUDE: $fpkg not listed by pm, but force.txt requested it — added anyway"
+                if [ "$UI_MODE" = "true" ]; then
+                    printf "FORCE_INCLUDE (pm-not-listed): %s (added)\n" "$fpkg"
+                fi
+            else
+                log "D" "FORCE_INCLUDE (pm-not-listed): $fpkg already present"
             fi
         fi
-    done
-    # Re-sort the file after adding packages to keep it clean
-    sort "$TARGET_FILE" -o "$TARGET_FILE"
-}
+    done < "$FORCE_FILE"
 
-process_package_list() {
-    while read package
-    do
-        case "$1" in
-            "EXCLUDE_LIST")
-                PACKAGE_LIST=("${EXCLUDE_LIST[@]}")
-                ;;
-            "FORCE_LIST")
-                PACKAGE_LIST=("${FORCE_LIST[@]}")
-                ;;
+    # Re-sort and uniq
+    sort -u "$TARGET_FILE" -o "$TARGET_FILE" 2>/dev/null || true
+fi
+
+# --------------------------------------------------------------------
+# Apply exclusions from exclude.txt (if present)
+# --------------------------------------------------------------------
+if [ -f "$EXCLUDE_FILE" ]; then
+    tmp="$(mktemp /data/local/tmp/tshelper.excl.XXXX 2>/dev/null || echo /data/local/tmp/tshelper.excl.tmp)"
+    cp "$TARGET_FILE" "$tmp" 2>/dev/null || true
+    while IFS= read -r xline || [ -n "$xline" ]; do
+        xpkg="$(echo "$xline" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        case "$xpkg" in
+            ''|\#*) continue ;;
         esac
-        for list_item in "${PACKAGE_LIST[@]}"
-        do
-            EXISTS=0
-            if [ "$list_item" = "$package" ]
-            then
-                EXISTS=1
-                break
-            fi 
-        done
-        case "$1" in
-            "EXCLUDE_LIST")
-                if [ "$EXISTS" -eq 1 ]
-                then
-                    sed -i "/^$package$/d" "$TARGET_FILE"
-                fi
-                ;;
-            "FORCE_LIST")
-                if [ "$EXISTS" -eq 1 ]
-                then
-                    if $FORCE_LEAF_HACK && (( ${#FORCE_LIST[@]} != 0 ))
-                    then
-                        sed -i s/"$package"$/"$package"\?/ "$TARGET_FILE"
-                    fi
-                    if $FORCE_CERT_GEN && (( ${#FORCE_LIST[@]} != 0 ))
-                    then
-                        sed -i s/"$package"$/"$package"\!/ "$TARGET_FILE"
-                    fi
-                fi
-                ;;
+        sed -i "/^$(printf '%s' "$xpkg" | sed 's/[][\/.^$*]/\\&/g')$/d" "$tmp" 2>/dev/null || true
+        ui_print "I" "Excluded package: $xpkg"
+    done < "$EXCLUDE_FILE"
+    mv "$tmp" "$TARGET_FILE" 2>/dev/null || true
+fi
+
+# --------------------------------------------------------------------
+# Apply force tagging: when force.txt entries present tag those entries
+# otherwise apply globally if a global flag is set
+# --------------------------------------------------------------------
+if [ -f "$FORCE_FILE" ] && [ -s "$FORCE_FILE" ]; then
+    # For each forced package, append ? or ! (or both) as appropriate
+    while IFS= read -r fline || [ -n "$fline" ]; do
+        fpkg="$(echo "$fline" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        case "$fpkg" in
+            ''|\#*) continue ;;
         esac
-    done < "$TARGET_FILE"
-}
 
-finish_success() {
-    log_print 4 "Script complete."
-    exit 0
-}
-
-# If specific packages need to be excluded from the target list,
-# add them to /data/adb/tricky_store/helper/exclude.txt
-# Use the above flags to choose which manual mode should be used
-add_to_list "$EXCLUDE_FILE" "EXCLUDE_LIST"
-
-# Default exclusion logic block removed, only config check remains.
-if [ -f "$CONFIG_FILE" ]
-then
-    USE_DEFAULT_EXCLUSIONS=$(grep '^USE_DEFAULT_EXCLUSIONS=' "$CONFIG_FILE" | cut -d '=' -f 2)
-fi
-if [ -z "$USE_DEFAULT_EXCLUSIONS" ]
-then
-    USE_DEFAULT_EXCLUSIONS=true
-fi
-
-# DEBUG: Base Logging
-log_print 5 "USE_DEFAULT_EXCLUSIONS=$USE_DEFAULT_EXCLUSIONS"
-
-# If only specific packages require one of the above options,
-# add them to /data/adb/tricky_store/helper/force.txt
-# Use the above flags to choose which manual mode should be used
-add_to_list "$FORCE_FILE" "FORCE_LIST"
-
-# Script processing start
-log_print 4 "$SCRIPTNAME script start"
-log_print 4 "Boot complete. $SCRIPTNAME processing "
-
-# Location of TrickyStore files
-TARGET_FILE="$TS_FOLDER/target.txt"
-
-# Generate target.txt
-if [ "$USE_DEFAULT_EXCLUSIONS" = "true" ]
-then
-    log_print 4 "Generating list: User Apps, Play Store, and Play Services only..."
-    { 
-        # 1. List 3rd party apps (non-system)
-        pm list packages -3; 
-        
-        # 2. Explicitly add Play Store
-        pm list packages com.android.vending; 
-        
-        # 3. Explicitly add Google Play Services
-        pm list packages com.google.android.gms; 
-    } | cut -d ":" -f 2 | sort | uniq > "$TARGET_FILE"
+        tmp="$(mktemp /data/local/tmp/tshelper.tag.XXXX 2>/dev/null || echo /data/local/tmp/tshelper.tag.tmp)"
+        while IFS= read -r l || [ -n "$l" ]; do
+            if [ "$l" = "$fpkg" ] || [ "$l" = "${fpkg}?" ] || [ "$l" = "${fpkg}!" ] || echo "$l" | grep -q "^${fpkg}[?!]$"; then
+                out="$l"
+                # strip existing suffixes before appending desired ones
+                base="$(echo "$l" | sed 's/[?!]$//')"
+                out="$base"
+                if [ "$FORCE_LEAF_HACK" = "true" ]; then out="${out}?" ; fi
+                if [ "$FORCE_CERT_GEN" = "true" ]; then out="${out}!" ; fi
+                printf "%s\n" "$out" >> "$tmp"
+            else
+                printf "%s\n" "$l" >> "$tmp"
+            fi
+        done < "$TARGET_FILE"
+        mv "$tmp" "$TARGET_FILE" 2>/dev/null || true
+    done < "$FORCE_FILE"
 else
-    # This path already includes ALL system apps.
-    log_print 4 "Generating list: ALL packages..."
-    pm list packages | cut -d ":" -f 2 | sort > "$TARGET_FILE"
-fi
-
-# CONDITIONAL FORCE-INCLUDE LOGIC
-# We only need to force-include system apps if default exclusions were active
-# AND the user actually put something in force.txt.
-if [ "$USE_DEFAULT_EXCLUSIONS" = "true" ] && (( ${#FORCE_LIST[@]} != 0 )); then
-    force_include_system_apps
-fi
-
-# Remove excluded packages
-if (( ${#EXCLUDE_LIST[@]} != 0 ))
-then
-    process_package_list "EXCLUDE_LIST"
-fi
-
-# Tag force packages
-if (( ${#FORCE_LIST[@]} == 0 ))
-then
-    if $FORCE_LEAF_HACK
-    then
-        log_print 4 "FORCE_LEAF_HACK set. Appending '?' to all package names..."
-        sed -i s/$/\?/ "$TARGET_FILE"
-        finish_success
-    elif $FORCE_CERT_GEN
-    then
-        log_print 4 "FORCE_CERT_GEN set. Appending '!' to all package names..." 
-        sed -i s/$/\!/ "$TARGET_FILE"
-        finish_success
-    else
-        finish_success
-    fi
-else
-    if $FORCE_LEAF_HACK || $FORCE_CERT_GEN
-    then
-        process_package_list "FORCE_LIST"
+    # no force file entries -> apply globally if flags set
+    if [ "$FORCE_LEAF_HACK" = "true" ]; then
+        tmp="$(mktemp /data/local/tmp/tshelper.all.XXXX 2>/dev/null || echo /data/local/tmp/tshelper.all.tmp)"
+        while IFS= read -r l || [ -n "$l" ]; do
+            printf "%s?\n" "$l" >> "$tmp"
+        done < "$TARGET_FILE"
+        mv "$tmp" "$TARGET_FILE" 2>/dev/null || true
+    elif [ "$FORCE_CERT_GEN" = "true" ]; then
+        tmp="$(mktemp /data/local/tmp/tshelper.all2.XXXX 2>/dev/null || echo /data/local/tmp/tshelper.all2.tmp)"
+        while IFS= read -r l || [ -n "$l" ]; do
+            printf "%s!\n" "$l" >> "$tmp"
+        done < "$TARGET_FILE"
+        mv "$tmp" "$TARGET_FILE" 2>/dev/null || true
     fi
 fi
 
-finish_success
+# --------------------------------------------------------------------
+# Final cleanup: remove empty lines and sort unique
+# --------------------------------------------------------------------
+if [ -f "$TARGET_FILE" ]; then
+    sed -i '/^$/d' "$TARGET_FILE" 2>/dev/null || true
+    sort -u "$TARGET_FILE" -o "$TARGET_FILE" 2>/dev/null || true
+fi
+
+ui_print "I" "target.txt generated: $(wc -l < "$TARGET_FILE" 2>/dev/null || echo 0) packages"
+
+# --------------------------------------------------------------------
+# Kill Play services (UI only)
+# --------------------------------------------------------------------
+if [ "$UI_MODE" = "true" ]; then
+    ui_print "I" "Restarting Play services to apply changes..."
+    am force-stop com.google.android.gms >/dev/null 2>&1 || true
+    sleep 0.3
+    am force-stop com.android.vending >/dev/null 2>&1 || true
+    sleep 0.3
+    ui_print "I" "Play services stopped; they will restart automatically."
+fi
+
+# --------------------------------------------------------------------
+# Auto-close for KernelSU / APatch (UI only)
+# --------------------------------------------------------------------
+if [ "$UI_MODE" = "true" ] && ( [ "$KSU" = "true" ] || [ "$APATCH" = "true" ] ) \
+   && [ "$KSU_NEXT" != "true" ] && [ "$WKSU" != "true" ] && [ "$MMRL" != "true" ]; then
+    ui_print "I" "📴 Closing dialog in 10 seconds..."
+    sleep 10
+fi
+
+ui_print "I" "helper.sh finished"
+exit 0
