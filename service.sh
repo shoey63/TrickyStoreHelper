@@ -1,39 +1,34 @@
 #!/system/bin/sh
+MODDIR="${0%/*}"
+TS_FOLDER="/data/adb/tricky_store"
+TS_HELPER="$TS_FOLDER/helper"
+LOG_FILE="$TS_HELPER/helper.log"
 
-MODDIR=${0%/*}
-CONFIG_FILE="/data/adb/tricky_store/helper/config.txt"
+# Ensure helper folder & log exist
+[ -d "$TS_HELPER" ] || mkdir -p "$TS_HELPER" 2>/dev/null || true
+[ -f "$LOG_FILE" ] || : > "$LOG_FILE" 2>/dev/null
 
-# Wait for boot_completed (safe loop)
+printf "%s [%s] %s\n" "$(date '+%F %T')" "I" "service.sh started" >> "$LOG_FILE"
+
+# Wait for boot_completed
 while [ "$(getprop sys.boot_completed)" != "1" ]; do
     sleep 1
 done
 
-# Fix permissions
+# Fix perms on scripts if needed
 for f in "$MODDIR"/*.sh; do
     [ -f "$f" ] || continue
     CUR=$(stat -c "%a" "$f" 2>/dev/null)
-    [ "$CUR" != "755" ] && chmod 755 "$f"
+    if [ "$CUR" != "755" ]; then
+        chmod 755 "$f" 2>/dev/null || true
+        printf "%s [%s] %s\n" "$(date '+%F %T')" "I" "fixed perms: $f" >> "$LOG_FILE"
+    fi
 done
 
-# -------------------------------------------------------------------
-# CONFIG SAFETY FIX
-# If both flags are true, force-reset to false/false
-# -------------------------------------------------------------------
-if [ -f "$CONFIG_FILE" ]; then
-    FORCE_LEAF_HACK=$(grep '^FORCE_LEAF_HACK=' "$CONFIG_FILE" | cut -d '=' -f 2)
-    FORCE_CERT_GEN=$(grep '^FORCE_CERT_GEN=' "$CONFIG_FILE" | cut -d '=' -f 2)
-
-    if [ "$FORCE_LEAF_HACK" = "true" ] && [ "$FORCE_CERT_GEN" = "true" ]; then
-        # Automatically repair config to prevent helper abort
-        sed -i 's/^FORCE_LEAF_HACK=.*/FORCE_LEAF_HACK=false/' "$CONFIG_FILE"
-        sed -i 's/^FORCE_CERT_GEN=.*/FORCE_CERT_GEN=false/' "$CONFIG_FILE"
-
-        echo "[TSHelper] Auto-fixed invalid config at boot." \
-            >> /data/adb/tricky_store/helper/bootlog.txt
-    fi
-fi
-
-# -------------------------------------------------------------------
-# Run helper script
-# -------------------------------------------------------------------
+# Run helper silently (no --ui)
+# helper.sh will log everything and neutralize true/true in-memory only
 /system/bin/sh "$MODDIR/helper.sh"
+RET=$?
+
+printf "%s [%s] %s\n" "$(date '+%F %T')" "I" "service.sh finished helper.sh (exit $RET)" >> "$LOG_FILE"
+exit 0
