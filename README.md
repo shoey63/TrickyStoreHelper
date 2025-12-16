@@ -9,8 +9,8 @@
 * **Automated Generation:** Automatically populates `target.txt` with installed packages on every boot.
 * **Stream Processing Engine:** Uses a high-performance, single-pass pipeline (Awk stream) to process package lists instantly without creating temporary files.
 * **Action Button Support:**
-    * **KernelSU / APatch:** Fully supported with a UI action button to refresh the list on demand.
-    * **Magisk:** Runs silently at boot; can be triggered manually via terminal.
+    * **Magisk / KernelSU / APatch:** Fully supported with a UI action button to refresh the list on demand.
+    * **On-Boot:** Runs silently at boot; can be triggered manually via terminal.
 * **Smart Configuration:** Supports custom exclusions, forced inclusions, and specific "hack" modes (Leaf/Cert).
 * **Conflict Detection:** Automatically prevents invalid configurations (e.g., enabling both Leaf and Cert hacks simultaneously).
 
@@ -19,11 +19,11 @@
 ## 🛠️ Installation & Usage
 
 1.  **Prerequisite:** Ensure **TrickyStore** is installed first.
-2.  **Install:** Flash the `TrickyStoreHelper` zip in Magisk, KernelSU, or APatch.
+2.  **Install:** Flash the `TrickyStoreHelper` zip in Magisk, KernelSU or APatch.
 3.  **Reboot:** The module will automatically run the generation script on boot.
 
 ### On-Demand Refresh
-* **KernelSU / APatch:** Go to the Module list and press the **Action Button** (or "Configure") to regenerate the list immediately.
+* **Magisk / KernelSU / APatch:** Go to the Module list and press the **Action Button** to regenerate the list immediately.
 * **Terminal:** Run the script manually as root:
     ```bash
     su
@@ -72,7 +72,7 @@ Add package names here (one per line) to **force include** them, even if they ar
 
 ### v0.3.0
 * **New Engine:** Rewrote generation logic using a stream processor (Pipe -> Sort -> Awk) for massive performance gains.
-* **UI:** Added Action Button support for KernelSU and APatch with live status output.
+* **UI:** Added Action Button support for Magisk, KernelSU and APatch with live status output.
 * **Boot:** Optimized boot script with permission auto-fixer.
 * **Fixes:** Improved handling of Windows line endings (`\r`) in config files.
 
