@@ -52,7 +52,7 @@ jobs:
         if: ${{ inputs.create_release == 'true' }}
         run: |
           zip -r TrickyStoreHelper-${{ env.MODULE_VERSION }}-release.zip \
-            module.prop service.sh customize.sh action.sh helper.sh uninstall.sh META-INF/** \
+            module.prop service.sh customize.sh action.sh uninstall.sh META-INF/** \
             -x "*.git*" ".github/*" "README.md" ".gitignore" "*.zip"
 
       # Publish the release with the -release suffix so it's unmistakable

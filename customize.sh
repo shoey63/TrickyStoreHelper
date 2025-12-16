@@ -1,72 +1,39 @@
 #!/system/bin/sh
 # customize.sh — Installer-time setup for TrickyStore Helper
 
+# --- Variables ---
 TS_FOLDER="/data/adb/tricky_store"
-TS_MODULE_FOLDER="/data/adb/modules/tricky_store"
-
-# Abort if TrickyStore core is missing
-if [ ! -d "$TS_FOLDER" ] || [ ! -d "$TS_MODULE_FOLDER" ]; then
-    abort "- TrickyStore not detected.
-Please install TrickyStore **before** installing this helper."
-fi
-
-# Paths inside helper folder
+TS_MODULES="/data/adb/modules/tricky_store"
 TS_HELPER="$TS_FOLDER/helper"
-CONFIG_FILE="$TS_HELPER/config.txt"
-EXCLUDE_FILE="$TS_HELPER/exclude.txt"
-FORCE_FILE="$TS_HELPER/force.txt"
-OLD_FORCE_FILE="$TS_FOLDER/force.txt"
 
-ui_print "• Preparing TrickyStore Helper..."
-
-# --------------------------------------------------------------------
-# Clean up old remnants
-# --------------------------------------------------------------------
-if [ -f "$TS_FOLDER/helper-log.txt" ]; then
-    ui_print "  - Removing legacy helper-log.txt"
-    rm -f "$TS_FOLDER/helper-log.txt"
+# --- 1. Dependency Check ---
+# Abort if TrickyStore or its module directory is missing
+if [ ! -d "$TS_FOLDER" ] || [ ! -d "$TS_MODULES" ]; then
+    abort "- ❌ TrickyStore not detected. Please install TrickyStore first."
 fi
 
-# --------------------------------------------------------------------
-# Create helper folder if missing
-# --------------------------------------------------------------------
-if [ ! -d "$TS_HELPER" ]; then
-    ui_print "  - Creating helper folder..."
-    mkdir -p "$TS_HELPER"
-fi
+ui_print "- Preparing TrickyStore Helper..."
 
-# --------------------------------------------------------------------
-# Create default config if missing
-# --------------------------------------------------------------------
-if [ ! -f "$CONFIG_FILE" ]; then
+# --- 2. Directory Setup ---
+# Ensure helper directory exists
+mkdir -p "$TS_HELPER"
+
+# --- 3. Config Generation ---
+# Create default config only if it doesn't exist
+if [ ! -f "$TS_HELPER/config.txt" ]; then
     ui_print "  - Creating default config.txt"
-    {
-        echo "FORCE_LEAF_HACK=false"
-        echo "FORCE_CERT_GEN=false"
-        echo "USE_DEFAULT_EXCLUSIONS=true"
-    } > "$CONFIG_FILE"
+    cat <<EOF > "$TS_HELPER/config.txt"
+FORCE_LEAF_HACK=false
+FORCE_CERT_GEN=false
+USE_DEFAULT_EXCLUSIONS=true
+EOF
 fi
 
-# --------------------------------------------------------------------
-# Create exclude.txt if missing
-# --------------------------------------------------------------------
-if [ ! -f "$EXCLUDE_FILE" ]; then
-    ui_print "  - Creating empty exclude.txt"
-    : > "$EXCLUDE_FILE"
-fi
+# --- 4. File Initialization ---
+# Create empty exclude.txt if missing
+[ ! -f "$TS_HELPER/exclude.txt" ] && touch "$TS_HELPER/exclude.txt"
 
-# --------------------------------------------------------------------
-# Migrate old force.txt from module root → helper folder
-# --------------------------------------------------------------------
-if [ -f "$OLD_FORCE_FILE" ]; then
-    ui_print "  - Migrating old force.txt to helper folder"
-    mv -f "$OLD_FORCE_FILE" "$FORCE_FILE"
-fi
+# Create empty force.txt if missing
+[ ! -f "$TS_HELPER/force.txt" ] && touch "$TS_HELPER/force.txt"
 
-# Ensure force.txt exists
-if [ ! -f "$FORCE_FILE" ]; then
-    ui_print "  - Creating empty force.txt"
-    : > "$FORCE_FILE"
-fi
-
-ui_print "✓ TrickyStore Helper prepared successfully"
+ui_print "- ✅ Setup complete!"
