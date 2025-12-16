@@ -34,7 +34,7 @@ jobs:
           echo "MODULE_VERSION=$VERSION" >> $GITHUB_ENV
           echo "MODULE_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
 
-      # CI artifact — keeps the exact name you already know and love
+      # CI artifact
       - name: Upload CI artifact (clean module)
         uses: actions/upload-artifact@v4
         with:
@@ -55,7 +55,7 @@ jobs:
             module.prop service.sh customize.sh action.sh uninstall.sh META-INF/** \
             -x "*.git*" ".github/*" "README.md" ".gitignore" "*.zip"
 
-      # Publish the release with the -release suffix so it's unmistakable
+      # Publish the release with the -release suffix
       - name: Create GitHub Release
         if: ${{ inputs.create_release == 'true' }}
         uses: softprops/action-gh-release@v2
