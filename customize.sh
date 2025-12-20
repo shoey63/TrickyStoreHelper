@@ -1,37 +1,39 @@
+#!/system/bin/sh
+# customize.sh — Installer-time setup for TrickyStore Helper
+
+# --- Variables ---
 TS_FOLDER="/data/adb/tricky_store"
-TS_MODULE_FOLDER="/data/adb/modules/tricky_store"
-
-# Check for TrickyStore installation before we proceed
-{ [ -d "$TS_FOLDER" ] && [ -d "$TS_MODULE_FOLDER" ]; } || abort "- Please install TrickyStore before installing this module."
-
+TS_MODULES="/data/adb/modules/tricky_store"
 TS_HELPER="$TS_FOLDER/helper"
-CONFIG_FILE="$TS_HELPER/config.txt"
-EXCLUDE_FILE="$TS_HELPER/exclude.txt"
-FORCE_FILE="$TS_HELPER/force.txt"
 
-# Clean up old module remnant
-rm -rf "$TS_FOLDER/helper-log.txt"
+# --- 1. Dependency Check ---
+# Abort if TrickyStore or its module directory is missing
+if [ ! -d "$TS_FOLDER" ] || [ ! -d "$TS_MODULES" ]; then
+    abort "- ❌ TrickyStore not detected. Please install TrickyStore first."
+fi
 
-# Prepare the helper folder
-if [ ! -d "$TS_HELPER" ]
-then
-    mkdir "$TS_HELPER"
+ui_print "- Preparing TrickyStore Helper..."
+
+# --- 2. Directory Setup ---
+# Ensure helper directory exists
+mkdir -p "$TS_HELPER"
+
+# --- 3. Config Generation ---
+# Create default config only if it doesn't exist
+if [ ! -f "$TS_HELPER/config.txt" ]; then
+    ui_print "  - Creating default config.txt"
+    cat <<EOF > "$TS_HELPER/config.txt"
+FORCE_LEAF_HACK=false
+FORCE_CERT_GEN=false
+USE_DEFAULT_EXCLUSIONS=true
+EOF
 fi
-if [ ! -f "$CONFIG_FILE" ]
-then
-    echo "FORCE_LEAF_HACK=false">"$TS_HELPER/config.txt"
-    echo "FORCE_CERT_GEN=false">>"$TS_HELPER/config.txt"
-    echo "USE_DEFAULT_EXCLUSIONS=true">>"$TS_HELPER/config.txt"
-fi
-if [ ! -f "$EXCLUDE_FILE" ]
-then
-    touch "$TS_HELPER/exclude.txt"
-fi
-if [ -f "$TS_FOLDER/force.txt" ]
-then
-    mv "$TS_FOLDER/force.txt" "$TS_HELPER/force.txt"
-fi
-if [ ! -f "$FORCE_FILE" ]
-then
-    touch "$TS_HELPER/force.txt"
-fi
+
+# --- 4. File Initialization ---
+# Create empty exclude.txt if missing
+[ ! -f "$TS_HELPER/exclude.txt" ] && touch "$TS_HELPER/exclude.txt"
+
+# Create empty force.txt if missing
+[ ! -f "$TS_HELPER/force.txt" ] && touch "$TS_HELPER/force.txt"
+
+ui_print "- ✅ Setup complete!"
