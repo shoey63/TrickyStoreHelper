@@ -1,9 +1,24 @@
 #!/system/bin/sh
-
+#
+# service.sh - Boot logic for TrickyStoreHelper
+#
 MODDIR=${0%/*}
 
-# Wait for boot_completed
-resetprop -w sys.boot_completed 0 > /dev/null 2>&1
+# 1. Wait for Boot Completion
+# (Ensures the system is stable before we run our logic)
+while [ "$(getprop sys.boot_completed)" != "1" ]; do
+    sleep 1
+done
 
-# Run helper script using system sh
-/system/bin/sh "$MODDIR/helper.sh"
+# 2. Conditional Permission Fix
+# (Makes scripts executable for terminal/UI use, only if they aren't already)
+for f in "$MODDIR"/*.sh; do
+    [ -f "$f" ] || continue
+    if [ ! -x "$f" ]; then
+        chmod 755 "$f"
+    fi
+done
+
+# 3. Run action.sh in "boot" mode
+# (Passes 'boot' arg so the UI sleep delay is skipped)
+sh "$MODDIR/action.sh" boot
