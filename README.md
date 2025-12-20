@@ -52,7 +52,7 @@ Add package names here (one per line) to **exclude** them from `target.txt`, eve
 
 ### 3. `force.txt`
 Add package names here (one per line) to **force include** them, even if they aren't in the standard package list.
-* *Note:* If a specific hack mode is enabled in config, it will be applied to these packages as well.
+* *Note:* If a specific hack mode is enabled in config, it will be applied to these packages only.
 
 ---
 
