@@ -1,6 +1,6 @@
 id=trickystorehelper
-name=Tricky Store Helper
-version=v0.2.1
-versionCode=0000210
-author=Captain_Throwback
-description=Add all installed packages to target.txt
+name=TrickyStore Helper
+version=v0.3.1
+versionCode=301
+author=shoey63 (based on work by Captain_Throwback)
+description=Enhanced TrickyStore Helper — automatically updates target.txt at boot or via action button, supports user+system apps, and force modes for spoofing.
