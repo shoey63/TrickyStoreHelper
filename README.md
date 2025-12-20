@@ -45,7 +45,6 @@ Controls the global behavior of the script.
 | `USE_DEFAULT_EXCLUSIONS` | `true` | `true` = Include **User Apps** only (plus critical system apps like GMS/Vending).<br>`false` = Include **All Apps** (System + User). |
 | `FORCE_LEAF_HACK` | `false` | If `true`, appends `?` to packages to force the **Leaf Certificate Hack**. |
 | `FORCE_CERT_GEN` | `false` | If `true`, appends `!` to packages to force **Certificate Generation**. |
-| `CUSTOM_LOGLEVEL` | `3` | Controls verbosity (1=Fatal to 6=Verbose). Default is 3 (Warn). |
 
 ### 2. `exclude.txt`
 Add package names here (one per line) to **exclude** them from `target.txt`, even if they are installed.
