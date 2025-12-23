@@ -1,6 +1,6 @@
 #!/system/bin/sh
 #
-# action.sh - TrickyStoreHelper (Final Clean)
+# action.sh - TrickyStoreHelper (Final Stream Edition)
 #
 MODDIR=${0%/*}
 
@@ -30,11 +30,16 @@ touch "$EXCLUDE_FILE" "$FORCE_FILE" "$LOG_FILE"
 # UI Functions
 ui_print() { echo "$1"; echo "$(date '+%T') UI: $1" >> "$LOG_FILE"; }
 
-ui_print " "
-ui_print "*****************************************"
-ui_print "* TrickyStore Helper - Stream Mode    *"
-ui_print "*****************************************"
-ui_print " "
+# 1.1 Log Boot Mode if active
+if [ "$IS_BOOT" = "true" ]; then
+    echo "$(date '+%T') UI: 🚀 Boot mode detected. Sleep commands disabled." >> "$LOG_FILE"
+fi
+
+echo " "
+echo "================================================"
+ui_print "           ⭐ TrickyStore Helper ⭐"
+echo "================================================"
+echo " "
 sleep_ui 0.5
 
 if [ ! -d "$TS_FOLDER" ]; then
@@ -42,8 +47,10 @@ if [ ! -d "$TS_FOLDER" ]; then
     exit 1
 fi
 
-# Load Config
-grep_conf() { grep "^$1=" "$CONFIG_FILE" 2>/dev/null | cut -d= -f2; }
+# Load Config (Improved to strip all whitespace)
+grep_conf() { 
+    grep "^$1=" "$CONFIG_FILE" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]'
+}
 
 # Defaults
 FORCE_LEAF="false"; FORCE_CERT="false"; USE_DEF_EXCL="true"
@@ -56,7 +63,19 @@ FORCE_LEAF="false"; FORCE_CERT="false"; USE_DEF_EXCL="true"
 
 # Conflict Resolution
 if [ "$FORCE_LEAF" = "true" ] && [ "$FORCE_CERT" = "true" ]; then
-    ui_print "!! WARN: Config conflict. Hacks disabled."
+    echo " "
+    ui_print "🚨  WARNING - INVALID CONFIGURATION DETECTED  🚨"
+    echo " "
+    sleep_ui 0.5
+    echo " "
+    ui_print "Both FORCE_LEAF_HACK and FORCE_CERT_GEN are TRUE in:"
+    ui_print "    $CONFIG_FILE"
+    echo ""
+    sleep_ui 0.5
+    ui_print "This run will proceed with both flags set to"  
+    ui_print "FALSE in memory only."
+    echo ""
+    echo "------------------------------------------------"
     FORCE_LEAF="false"; FORCE_CERT="false"
     sleep_ui 1
 fi
@@ -71,16 +90,17 @@ SUFFIX=""
 ui_print "-> Generating and processing list..."
 sleep_ui 0.5
 
-# 1. Define the input stream generator
+# 1. Define the input stream generator (Now with Pollution Filter)
 generate_stream() {
     # A. List installed packages
+    # We explicitly filter for lines starting with 'package:' to ignore APatch errors
     if [ "$USE_DEF_EXCL" = "true" ]; then
-        pm list packages -3 | cut -d: -f2
+        pm list packages -3 2>/dev/null | grep '^package:' | cut -d: -f2
         # Inject criticals
         echo "com.google.android.gms"
         echo "com.android.vending"
     else
-        pm list packages | cut -d: -f2
+        pm list packages 2>/dev/null | grep '^package:' | cut -d: -f2
     fi
     
     # B. Append force list (strip CR just in case)
@@ -161,25 +181,36 @@ generate_stream | sort -u | awk \
         print "   * Excluded:    " cnt_removed
         print "   * Total Packages: " cnt_total
     }
-' "$EXCLUDE_FILE" "$FORCE_FILE" - 
+' "$EXCLUDE_FILE" "$FORCE_FILE" - | while read -r line; do ui_print "$line"; done
 
 sleep_ui 0.5
 
 # --- 3. Finalize ---
 
-ui_print "-----------------------------------------"
+echo "------------------------------------------------"
 ui_print "-> Restarting services..."
 sleep_ui 0.5
 
-killall com.google.android.gms.unstable 2>/dev/null
-killall com.android.vending 2>/dev/null
+# Restart GMS Unstable (DroidGuard)
+if killall com.google.android.gms.unstable >/dev/null 2>&1; then
+    ui_print "   ✅  DroidGuard (GMS) restarted"
+else
+    ui_print "   ℹ️  DroidGuard (GMS) was not running"
+fi
+
+# Restart Play Store
+if killall com.android.vending >/dev/null 2>&1; then
+    ui_print "   ✅  Play Store restarted"
+else
+    ui_print "   ℹ️  Play Store was not running"
+fi
 
 sleep_ui 1
 
-ui_print "-----------------------------------------"
+echo "------------------------------------------------"
 ui_print "-> Success! Package list generated."
 ui_print "-> Review $TARGET_FILE"
-ui_print "*****************************************"
+echo "************************************************"
 
 # --- Smart Exit Logic ---
 
@@ -191,12 +222,12 @@ case "$(su -v 2>/dev/null)" in
 esac
 
 # Fallback: Pause for KernelSU, APatch, and others.
-ui_print " "
-ui_print "Closing in 10 seconds..."
-        sleep_ui 6
-        ui_print "exiting..."
-        sleep_ui 2
-        ui_print "✅"
-        sleep_ui 2
-        
+echo " "
+echo "Closing in 10 seconds..."
+sleep_ui 6
+echo "   exiting..."
+sleep_ui 2
+echo "   ✅"
+sleep_ui 2
+
 exit 0
