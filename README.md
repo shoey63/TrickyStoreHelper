@@ -1,86 +1,67 @@
 # TrickyStore Helper
 
-**A helper module for [TrickyStore](https://github.com/5ec1cff/TrickyStore) to automatically generate and manage `target.txt`.**
+A lightweight, robust, and high-performance companion module for [TrickyStore](https://github.com/5ec1cff/TrickyStore).
 
-> **Note:** This is an enhanced fork of [CaptainThrowback's original helper](https://github.com/CaptainThrowback/TrickyStoreHelper), optimized for speed and compatibility with KernelSU, APatch, and Magisk.
+This module automates the generation of `target.txt`, allowing you to easily manage which apps bypass keybox attestation. It features a new stream-based processing engine that is incredibly fast and compatible with Magisk, KernelSU, and APatch.
 
-## 🚀 Features
+## ⚡ Features (v0.3.1)
 
-* **Automated Generation:** Automatically populates `target.txt` with installed packages on every boot.
-* **Stream Processing Engine:** Uses a high-performance, single-pass pipeline (Awk stream) to process package lists instantly without creating temporary files.
-* **Action Button Support:**
-    * **Magisk / KernelSU / APatch:** Fully supported with a UI action button to refresh the list on demand.
-    * **On-Boot:** Runs silently at boot; can be triggered manually via terminal.
-* **Smart Configuration:** Supports custom exclusions, forced inclusions, and specific "hack" modes (Leaf/Cert).
-* **Conflict Detection:** Automatically prevents invalid configurations (e.g., enabling both Leaf and Cert hacks simultaneously).
+* **🚀 Stream Engine:** Completely rewritten generation logic using a high-performance pipeline (`Pipe` -> `Sort` -> `Awk`). Zero temporary files, instant results.
+* **🛡️ Pollution-Proof:** Smart filtering ignores garbage output from root managers (fixing empty lists on APatch/crDroid).
+* **🔒 Atomic Boot Lock:** Prevents double-execution race conditions during boot on all root solutions.
+* **⚙️ Robust Config:** New config parser ignores accidental spaces, tabs, and Windows line endings (`\r`).
+* **📱 Live UI:** Full support for "Action" buttons in Magisk, KernelSU, and APatch with real-time status logs.
+* **✅ Smart Verification:** Verifies if GMS/Play Store were actually running before attempting to restart them.
 
----
+## 📦 Installation
 
-## 🛠️ Installation & Usage
+1.  Ensure **TrickyStore** is already installed.
+2.  Flash `TrickyStoreHelper_v0.3.1.zip` in your root manager (Magisk/KSU/APatch).
+3.  Reboot.
 
-1.  **Prerequisite:** Ensure **TrickyStore** is installed first.
-2.  **Install:** Flash the `TrickyStoreHelper` zip in Magisk, KernelSU or APatch.
-3.  **Reboot:** The module will automatically run the generation script on boot.
+## 🛠️ Usage
 
-### On-Demand Refresh
-* **Magisk / KernelSU / APatch:** Go to the Module list and press the **Action Button** to regenerate the list immediately.
-* **Terminal:** Run the script manually as root:
-    ```bash
-    su
-    sh /data/adb/modules/trickystorehelper/action.sh
-    ```
+### Automatic (Boot)
+The module automatically generates a fresh `target.txt` on every boot to ensure your app list is always up to date.
+* *Note: This can be disabled in `config.txt` by setting `RUN_ON_BOOT=false`.*
 
----
+### Manual (Action Button)
+You can manually trigger a regeneration at any time:
+* **KernelSU / APatch:** Go to the Modules tab, tap **TrickyStore Helper**, and select **Action** (or "Generate List").
+* **Magisk:** Run the command `su -c sh /data/adb/modules/trickystorehelper/action.sh` in a terminal (Termux).
 
 ## ⚙️ Configuration
 
-All configuration files are located in:
+The configuration files are located at:
 `/data/adb/tricky_store/helper/`
 
-### 1. `config.txt`
-Controls the global behavior of the script.
+| File | Description |
+| :--- | :--- |
+| **`config.txt`** | Main settings file. |
+| **`exclude.txt`** | List of package names to **always ignore** (remove from `target.txt`). |
+| **`force.txt`** | List of package names to **always include** (even if not installed). |
+| **`TSHelper.log`** | Execution logs and debug info. |
 
-| Option | Default | Description |
-| :--- | :--- | :--- |
-| `USE_DEFAULT_EXCLUSIONS` | `true` | `true` = Include **User Apps** only (plus critical system apps like GMS/Vending).<br>`false` = Include **All Apps** (System + User). |
-| `FORCE_LEAF_HACK` | `false` | If `true`, appends `?` to packages to force the **Leaf Certificate Hack**. |
-| `FORCE_CERT_GEN` | `false` | If `true`, appends `!` to packages to force **Certificate Generation**. |
+### `config.txt` Options
 
-### 2. `exclude.txt`
-Add package names here (one per line) to **exclude** them from `target.txt`, even if they are installed.
-* *Example:* `com.banking.app`
-
-### 3. `force.txt`
-Add package names here (one per line) to **force include** them, even if they aren't in the standard package list.
-* *Note:* If a specific hack mode is enabled in config, it will be applied to these packages only.
-
----
-
-## 📜 How It Works
-
-1.  **Boot Script (`service.sh`):** Waits for boot completion, ensures script permissions are correct, and runs the generator in "silent" mode.
-2.  **Stream Processor (`action.sh`):**
-    * Reads the list of installed packages.
-    * Loads `exclude.txt` and `force.txt` into memory.
-    * Processes everything in a single pass using `awk`.
-    * Writes the final `target.txt` and restarts `com.google.android.gms.unstable` and `com.android.vending` to apply changes immediately.
-
----
+| Option | Values | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `FORCE_LEAF_HACK` | `true`/`false` | `false` | Appends `?` to all packages (Soft bypass). |
+| `FORCE_CERT_GEN` | `true`/`false` | `false` | Appends `!` to all packages (Hard bypass). |
+| `USE_DEFAULT_EXCLUSIONS` | `true`/`false` | `true` | Excludes system apps, keeps user apps & GMS. |
+| `RUN_ON_BOOT` | `true`/`false` | `true` | Controls if the script runs automatically at startup. |
 
 ## 📝 Changelog
+
 ### v0.3.1
-* Disable sleep commands during boot plus code optimisations
+* **Critical Fix:** Added `grep` filter to ignore "Failure calling service" errors polluting the stream on APatch.
+* **New:** Implemented atomic locking (`mkdir`) to prevent double-execution on boot.
+* **New:** Added `RUN_ON_BOOT` config option to optionally skip boot generation.
+* **Improvement:** Startup logic now verifies TrickyStore folder existence before creating helper files.
+* **Improvement:** Config parser now strips all invisible whitespace/tabs for better compatibility.
 
 ### v0.3.0
-* **New Engine:** Rewrote generation logic using a stream processor (Pipe -> Sort -> Awk) for massive performance gains.
-* **UI:** Added Action Button support for Magisk, KernelSU and APatch with live status output.
+* **New Engine:** Rewrote generation logic using a stream processor for massive performance gains.
+* **UI:** Added Action Button support with live status output.
 * **Boot:** Optimized boot script with permission auto-fixer.
-* **Fixes:** Improved handling of Windows line endings (`\r`) in config files.
-
----
-
-## 🤝 Credits
-
-* **CaptainThrowback:** Original concept and module.
-* **shoey63:** Stream optimization, UI enhancements, and APatch/KSU support.
-* **5ec1cff:** Creator of TrickyStore.
+* **Fixes:** Improved handling of Windows line endings in config files.
