@@ -1,8 +1,8 @@
 # TrickyStore Helper
 
-A lightweight, robust, and high-performance companion module for [TrickyStore](https://github.com/5ec1cff/TrickyStore).
+**A helper module for [TrickyStore](https://github.com/5ec1cff/TrickyStore) to automatically generate and manage `target.txt`.**
 
-This module automates the generation of `target.txt`, allowing you to easily manage which apps bypass keybox attestation. It features a new stream-based processing engine that is incredibly fast and compatible with Magisk, KernelSU, and APatch.
+> **Note:** This is an enhanced fork of [CaptainThrowback's original helper](https://github.com/CaptainThrowback/TrickyStoreHelper), optimized for speed and compatibility with KernelSU, APatch, and Magisk.
 
 ## ⚡ Features (v0.3.1)
 
