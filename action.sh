@@ -23,6 +23,20 @@ sleep_ui() {
     sleep "$1"
 }
 
+# Ensure Tricky Store is installed
+if [ ! -d "$TS_FOLDER" ]; then
+    echo " " 
+    echo " ❌FATAL❌: TrickyStore folder not found at:" 
+    echo " "
+    echo "  $TS_FOLDER" 
+    echo " "
+    echo " 🚨Please install TrickyStore first.🚨"
+    echo " "
+    echo " Closing in 5 seconds..."
+    sleep 7
+    exit 1
+fi
+
 # Ensure Helper folder exists
 mkdir -p "$TS_HELPER"
 touch "$EXCLUDE_FILE" "$FORCE_FILE" "$LOG_FILE"
@@ -41,11 +55,6 @@ ui_print "           ⭐ TrickyStore Helper ⭐"
 echo "================================================"
 echo " "
 sleep_ui 0.5
-
-if [ ! -d "$TS_FOLDER" ]; then
-    ui_print "!! FATAL: TrickyStore not installed."
-    exit 1
-fi
 
 # Load Config (Improved to strip all whitespace)
 grep_conf() { 
@@ -66,15 +75,17 @@ if [ "$FORCE_LEAF" = "true" ] && [ "$FORCE_CERT" = "true" ]; then
     echo " "
     ui_print "🚨  WARNING - INVALID CONFIGURATION DETECTED  🚨"
     echo " "
-    sleep_ui 0.5
+    sleep_ui 0.7
+    ui_print "Both FORCE_LEAF_HACK and FORCE_CERT_GEN are TRUE"
+    ui_print "  in: $CONFIG_FILE"
     echo " "
-    ui_print "Both FORCE_LEAF_HACK and FORCE_CERT_GEN are TRUE in:"
-    ui_print "    $CONFIG_FILE"
-    echo ""
-    sleep_ui 0.5
+    sleep_ui 0.7
     ui_print "This run will proceed with both flags set to"  
     ui_print "FALSE in memory only."
-    echo ""
+    echo " " 
+    sleep_ui 0.7
+    ui_print "You must set at least one flag to FALSE"
+    echo " "
     echo "------------------------------------------------"
     FORCE_LEAF="false"; FORCE_CERT="false"
     sleep_ui 1
@@ -88,7 +99,7 @@ SUFFIX=""
 # --- 2. The Stream Processor ---
 
 ui_print "-> Generating and processing list..."
-sleep_ui 0.5
+sleep_ui 0.7
 
 # 1. Define the input stream generator (Now with Pollution Filter)
 generate_stream() {
@@ -183,13 +194,12 @@ generate_stream | sort -u | awk \
     }
 ' "$EXCLUDE_FILE" "$FORCE_FILE" - | while read -r line; do ui_print "$line"; done
 
-sleep_ui 0.5
+sleep_ui 0.7
 
 # --- 3. Finalize ---
-
 echo "------------------------------------------------"
 ui_print "-> Restarting services..."
-sleep_ui 0.5
+sleep_ui 0.7
 
 # Restart GMS Unstable (DroidGuard)
 if killall com.google.android.gms.unstable >/dev/null 2>&1; then
@@ -206,7 +216,6 @@ else
 fi
 
 sleep_ui 1
-
 echo "------------------------------------------------"
 ui_print "-> Success! Package list generated."
 ui_print "-> Review $TARGET_FILE"
@@ -225,9 +234,11 @@ esac
 echo " "
 echo "Closing in 10 seconds..."
 sleep_ui 6
-echo "   exiting..."
+echo " "
+echo "exiting..."
 sleep_ui 2
-echo "   ✅"
+echo " "
+echo "✅"
 sleep_ui 2
 
 exit 0
