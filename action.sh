@@ -13,6 +13,30 @@ FORCE_FILE="$TS_HELPER/force.txt"
 LOG_FILE="$TS_HELPER/TSHelper.log"
 TARGET_FILE="$TS_FOLDER/target.txt"
 
+# Detect Boot Mode immediately
+IS_BOOT="false"
+[ "$1" = "boot" ] && IS_BOOT="true"
+
+# Smart Sleep Function: Skips delays if running on boot
+sleep_ui() {
+    [ "$IS_BOOT" = "true" ] && return
+    sleep "$1"
+}
+
+# Ensure Tricky Store is installed
+if [ ! -d "$TS_FOLDER" ]; then
+    echo " " 
+    echo " ❌FATAL❌: TrickyStore folder not found at:" 
+    echo " "
+    echo "  $TS_FOLDER" 
+    echo " "
+    echo " 🚨Please install TrickyStore first.🚨"
+    echo " "
+    echo " Closing in 5 seconds..."
+    sleep 7
+    exit 1
+fi
+
 # Ensure Helper folder exists
 mkdir -p "$TS_HELPER"
 touch "$EXCLUDE_FILE" "$FORCE_FILE" "$LOG_FILE"
@@ -20,23 +44,24 @@ touch "$EXCLUDE_FILE" "$FORCE_FILE" "$LOG_FILE"
 # UI Functions
 ui_print() { echo "$1"; echo "$(date '+%T') UI: $1" >> "$LOG_FILE"; }
 
-ui_print " "
-ui_print "========================================================"
-ui_print "               ⭐ TrickyStore Helper ⭐"
-ui_print "========================================================"
-ui_print " "
-sleep 0.7
-
-if [ ! -d "$TS_FOLDER" ]; then
-    ui_print "!! FATAL: TrickyStore not installed."
-    exit 1
+# 1.1 Log Boot Mode if active
+if [ "$IS_BOOT" = "true" ]; then
+    echo "$(date '+%T') UI: 🚀 Boot mode detected. Sleep commands disabled." >> "$LOG_FILE"
 fi
 
-# Load Config
-grep_conf() { grep "^$1=" "$CONFIG_FILE" 2>/dev/null | cut -d= -f2; }
+echo " "
+echo "================================================"
+ui_print "           ⭐ TrickyStore Helper ⭐"
+echo "================================================"
+echo " "
+sleep_ui 0.5
+
+# Load Config (Improved to strip all whitespace)
+grep_conf() { 
+    grep "^$1=" "$CONFIG_FILE" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]'
+}
 
 # Defaults
-VERBOSE=${CUSTOM_LOGLEVEL:-3}
 FORCE_LEAF="false"; FORCE_CERT="false"; USE_DEF_EXCL="true"
 
 [ -f "$CONFIG_FILE" ] && {
@@ -47,22 +72,23 @@ FORCE_LEAF="false"; FORCE_CERT="false"; USE_DEF_EXCL="true"
 
 # Conflict Resolution
 if [ "$FORCE_LEAF" = "true" ] && [ "$FORCE_CERT" = "true" ]; then
-        echo ""
-        echo "🚨🚨🚨  WARNING — INVALID CONFIGURATION DETECTED  🚨🚨🚨"
-     sleep .5   
-        echo ""
-        echo "Both FORCE_LEAF_HACK and FORCE_CERT_GEN are TRUE in:"
-        echo "    $CONFIG_FILE"
-        echo ""
-     sleep .5
-        echo "This run will proceed with both flags set to"  
-        echo "FALSE in memory only.To make a permanent change,"
-        echo "edit the file above and set at least one flag to false."
-        echo ""
-        echo "-------------------------------------------------------------"
-        echo ""
+    echo " "
+    ui_print "🚨  WARNING - INVALID CONFIGURATION DETECTED  🚨"
+    echo " "
+    sleep_ui 0.7
+    ui_print "Both FORCE_LEAF_HACK and FORCE_CERT_GEN are TRUE"
+    ui_print "  in: $CONFIG_FILE"
+    echo " "
+    sleep_ui 0.7
+    ui_print "This run will proceed with both flags set to"  
+    ui_print "FALSE in memory only."
+    echo " " 
+    sleep_ui 0.7
+    ui_print "You must set at least one flag to FALSE"
+    echo " "
+    echo "------------------------------------------------"
     FORCE_LEAF="false"; FORCE_CERT="false"
-    sleep 1
+    sleep_ui 1
 fi
 
 # Determine Suffix
@@ -73,18 +99,19 @@ SUFFIX=""
 # --- 2. The Stream Processor ---
 
 ui_print "-> Generating and processing list..."
-sleep 0.5
+sleep_ui 0.7
 
-# 1. Define the input stream generator
+# 1. Define the input stream generator (Now with Pollution Filter)
 generate_stream() {
     # A. List installed packages
+    # We explicitly filter for lines starting with 'package:' to ignore APatch errors
     if [ "$USE_DEF_EXCL" = "true" ]; then
-        pm list packages -3 | cut -d: -f2
+        pm list packages -3 2>/dev/null | grep '^package:' | cut -d: -f2
         # Inject criticals
         echo "com.google.android.gms"
         echo "com.android.vending"
     else
-        pm list packages | cut -d: -f2
+        pm list packages 2>/dev/null | grep '^package:' | cut -d: -f2
     fi
     
     # B. Append force list (strip CR just in case)
@@ -92,9 +119,6 @@ generate_stream() {
 }
 
 # 2. Run the Pipeline
-#    TARGET_FILE passed as var; AWK writes to it internally.
-#    STDOUT is free for UI stats.
-
 generate_stream | sort -u | awk \
     -v suffix="$SUFFIX" \
     -v excl_file="$EXCLUDE_FILE" \
@@ -105,7 +129,7 @@ generate_stream | sort -u | awk \
 
     BEGIN {
         cnt_excl_file=0; cnt_force_file=0; 
-        cnt_tagged=0; cnt_removed=0;
+        cnt_tagged=0; cnt_removed=0; cnt_total=0;
         is_global="false";
     }
 
@@ -128,7 +152,7 @@ generate_stream | sort -u | awk \
         if (cnt_force_file == 0 && suffix != "") is_global="true";
     }
 
-    # 4. Process the Stream (Standard Input)
+    # 4. Process the Stream
     FILENAME == "-" {
         pkg = clean($0);
         if (pkg == "") next;
@@ -151,52 +175,70 @@ generate_stream | sort -u | awk \
         else {
             print pkg > target_file
         }
+        cnt_total++;
     }
 
-    # 5. Print Detailed UI Stats to STDOUT
+    # 5. Print Detailed UI Stats
     END {
-        tag_disp = (suffix == "" ? "None" : suffix)
-        
-        print "   * Active Mode: " tag_disp
-        print "   * Forced Apps: " cnt_tagged " (from " cnt_force_file " entries)"
-        print "   * Excluded:    " cnt_removed " (from " cnt_excl_file " entries)"
-        
-        if (is_global == "true") {
-            print "   * Global:      Applied to ALL"
+        if (suffix == "?") {
+            print "   * Active Mode: LEAF_HACK (? applied to " cnt_tagged " apps)"
+        } else if (suffix == "!") {
+            print "   * Active Mode: CERT_GEN (! applied to " cnt_tagged " apps)"
+        } else {
+            print "   * Active Mode: None"
         }
-    }
-' "$EXCLUDE_FILE" "$FORCE_FILE" - 
 
-sleep 0.5
+        print "   * Forced Apps: " cnt_force_file
+        print "   * Excluded:    " cnt_removed
+        print "   * Total Packages: " cnt_total
+    }
+' "$EXCLUDE_FILE" "$FORCE_FILE" - | while read -r line; do ui_print "$line"; done
+
+sleep_ui 0.7
 
 # --- 3. Finalize ---
-
-ui_print "-----------------------------------------"
+echo "------------------------------------------------"
 ui_print "-> Restarting services..."
-sleep 0.5
+sleep_ui 0.7
 
-killall com.google.android.gms.unstable 2>/dev/null
-killall com.android.vending 2>/dev/null
-
-sleep 1
-
-ui_print "-----------------------------------------"
-ui_print "-> Success! Package list generated.✅"
-ui_print "-> Review $TARGET_FILE"
-ui_print "*****************************************"
-
-# Only pause if NOT running during boot (checked via argument $1)
-if [ "$1" != "boot" ]; then
-    # Detect KSU/APatch/Magisk to pause for user readability
-    if [ -n "$KSU" ] || [ -n "$APATCH" ] || [ ! -f "/data/adb/magisk.db" ]; then
-        ui_print " "
-        ui_print "Closing in 10 seconds..."
-        sleep 6
-        ui_print "exiting..."
-        sleep 2
-        ui_print "✅"
-        sleep 2
-    fi
+# Restart GMS Unstable (DroidGuard)
+if killall com.google.android.gms.unstable >/dev/null 2>&1; then
+    ui_print "   ✅  DroidGuard (GMS) restarted"
+else
+    ui_print "   ℹ️  DroidGuard (GMS) was not running"
 fi
+
+# Restart Play Store
+if killall com.android.vending >/dev/null 2>&1; then
+    ui_print "   ✅  Play Store restarted"
+else
+    ui_print "   ℹ️  Play Store was not running"
+fi
+
+sleep_ui 1
+echo "------------------------------------------------"
+ui_print "-> Success! Package list generated."
+ui_print "-> Review $TARGET_FILE"
+echo "************************************************"
+
+# --- Smart Exit Logic ---
+
+# Magisk Check: Exit immediately if Magisk SU is running.
+case "$(su -v 2>/dev/null)" in
+    *MAGISK*|*magisk*)
+        exit 0
+        ;;
+esac
+
+# Fallback: Pause for KernelSU, APatch, and others.
+echo " "
+echo "Closing in 10 seconds..."
+sleep_ui 6
+echo " "
+echo "exiting..."
+sleep_ui 2
+echo " "
+echo "✅"
+sleep_ui 2
 
 exit 0
