@@ -217,7 +217,7 @@ fi
 
 sleep_ui 1
 echo "------------------------------------------------"
-ui_print "-> Success! Package list generated."
+ui_print "-> Success! Package list generated ✅"
 ui_print "-> Review $TARGET_FILE"
 echo "************************************************"
 
