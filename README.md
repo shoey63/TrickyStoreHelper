@@ -53,36 +53,33 @@ The configuration files are located at:
 
 ## 📝 Changelog
 
-### v0.4.0: 
-The "Set & Forget" Update
-​This major release introduces a zero-configuration Live Monitor, changing how you manage your target.txt. You no longer need to reboot or manually regenerate your list after installing new apps—TrickyStore Helper now watches the system and updates your configuration instantly.
+## v0.4.0: The "Set & Forget" Update
+
+This major release introduces a zero-configuration **Live Monitor**, changing how you manage your `target.txt`. You no longer need to reboot or manually regenerate your list after installing new apps—TrickyStore Helper now watches the system and updates your configuration instantly.
 
 ### ✨ New Features
-​* **👁️ Live Monitor Daemon:** Installs a lightweight background service that watches for new app installations.
-​Instant: Adds new apps to target.txt seconds after installation.
-* **​Smart:** Automatically ignores apps you have excluded in exclude.txt or system apps (configurable).
-* **​Safe:** Only appends new apps. It never overwrites your manual edits, custom suffixes (?/!), or existing configuration.
-​* **🏎️ Optimized Performance:**
-​Event-Driven: Uses inotifyd to sleep until needed. Zero battery drain.
-​Keep-Alive Architecture: The daemon automatically recovers if the system rotates package logs, ensuring 24/7 reliability.
-​* **🛡️ Conflict Prevention:**
-​Added "Settle Time" logic to prevent race conditions when uninstalling/reinstalling apps rapidly.
-​Uses unique temporary files to handle simultaneous installs without data corruption.
 
-### ​🛠️ Improvements
-​* **Logic Parity:** The monitor now shares the exact same exclusion logic as the main generator (respecting USE_DEFAULT_EXCLUSIONS).
-​* **Robust Service:** Rewrote service.sh to properly detach background processes, fixing issues where the monitor would die after a few minutes on some Root Managers (KSU/APatch).
-​* **Atomic Locking:** Improved boot protection to prevent double-execution scenarios.
+* **👁️ Live Monitor Daemon:** Instantly detects when you install a new app and appends it to `target.txt` automatically.
+    * **Instant:** Adds new apps to `target.txt` seconds after installation.
+    * **Smart:** Automatically ignores apps you have excluded in `exclude.txt` or system apps (configurable).
+    * **Safe:** Only appends *new* apps. It **never** overwrites your manual edits, custom suffixes (`?`/`!`), or existing configuration.
+* **🏎️ Optimized Performance:**
+    * **Event-Driven:** Uses `inotifyd` to sleep until needed. Zero battery drain.
+    * **Keep-Alive Architecture:** The daemon automatically recovers if the system rotates package logs, ensuring 24/7 reliability.
+* **🛡️ Conflict Prevention:**
+    * **Race Conditions:** Added "Settle Time" logic to prevent ghost additions during rapid uninstall/reinstall cycles.
+    * **Atomic Operations:** Uses unique temporary files to handle simultaneous installs without data corruption.
 
-## ⚙️ How it works now
-​* **Boot:** The helper generates your initial list (configurable) and starts the Live Monitor.
-* **​Daily Use:** You install an app (e.g., Uber). The Monitor detects it, adds com.ubercab to target.txt, and soft-restarts TrickyStore. It just works.
-* **​Maintenance:** You can still use the "Action" button in your Root Manager to perform a full "Clean & Rebuild" if you want to remove uninstalled apps or apply global suffixes.
+### 🛠️ Improvements
 
-## 📦 Installation
-* Flash the zip in Magisk/KernelSU/APatch.
-Reboot.
-* (Optional) Customize behavior in /data/adb/tricky_store/helper/config.txt.
+* **Logic Parity:** The monitor now shares the exact same exclusion logic as the main generator (respecting `USE_DEFAULT_EXCLUSIONS`).
+* **Robust Service:** Rewrote `service.sh` to properly detach background processes, fixing issues where the monitor would die after a few minutes on some Root Managers (KSU/APatch).
+
+### ⚙️ How it works now
+
+1.  **Boot:** The helper generates your initial list (configurable) and starts the Live Monitor.
+2.  **Daily Use:** You install an app (e.g., *Uber*). The Monitor detects it, adds `com.ubercab` to `target.txt`, and soft-restarts TrickyStore. **It just works.**
+3.  **Maintenance:** You can still use the "Action" button in your Root Manager to perform a full "Clean & Rebuild" if you want to remove uninstalled apps or apply global suffixes.
 
 ### v0.3.1
 * **Critical Fix:** Added `grep` filter to ignore "Failure calling service" errors polluting the stream on APatch.
