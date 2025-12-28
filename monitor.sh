@@ -1,6 +1,5 @@
 #!/system/bin/sh
-# monitor.sh - Smart Differential Updater (Async, Conflict-Free, Auto-Cleanup)
-# Appends NEW user apps to target.txt only if they are not already excluded.
+# monitor.sh - Smart Differential Updater (uses pm list)
 
 TS_FOLDER="/data/adb/tricky_store"
 HELPER_FOLDER="$TS_FOLDER/helper"
@@ -26,7 +25,7 @@ CLEAN_EXCLUDE="/dev/ts_mon_exclude_${PID}.tmp"
 RESULTS_FILE="/dev/ts_mon_results_${PID}.tmp"
 
 # --- 3. The Trap (Auto-Cleanup) ---
-# This ensures temp files are deleted even if the script crashes or is killed.
+# Ensures temp files are deleted when script finishes or exits
 trap 'rm -f "$CLEAN_TARGET" "$CLEAN_EXCLUDE" "$RESULTS_FILE"; exit' EXIT HUP INT TERM
 
 # --- 4. Load Configuration ---
@@ -37,10 +36,10 @@ if [ -f "$CONFIG_FILE" ]; then
 fi
 
 # --- 5. Prepare Memory Lists ---
-# Clean Target: Strip \r, spaces, and suffixes
+# Clean Target: Strip \r, spaces, and suffixes (? or !)
 tr -d '\r' < "$TARGET_FILE" | sed 's/[ \t]*[?!]*[ \t]*$//' > "$CLEAN_TARGET"
 
-# Clean Exclude
+# Clean Exclude: Strip \r and spaces
 if [ -f "$EXCLUDE_FILE" ]; then
     tr -d '\r' < "$EXCLUDE_FILE" | sed 's/^[ \t]*//;s/[ \t]*$//' > "$CLEAN_EXCLUDE"
 else
@@ -50,12 +49,13 @@ fi
 # --- 6. Generate Candidate Stream ---
 generate_candidates() {
     if [ "$USE_DEF_EXCL" = "true" ]; then
-        # User Apps Only (-3)
+        # User Apps Only (-3 flag)
         pm list packages -3 2>/dev/null | grep '^package:' | cut -d: -f2
+        # Always check GMS and Play Store
         echo "com.google.android.gms"
         echo "com.android.vending"
     else
-        # All Apps
+        # All Apps (System + User)
         pm list packages 2>/dev/null | grep '^package:' | cut -d: -f2
     fi
 }
@@ -63,6 +63,7 @@ generate_candidates() {
 # --- 7. Compare & Filter ---
 : > "$RESULTS_FILE" # Create empty result file
 
+# We stream the candidates into a loop to check against our clean lists
 generate_candidates | sort -u | while read -r pkg; do
     # CHECK 1: Is it already in target.txt?
     if ! grep -F -x -q "$pkg" "$CLEAN_TARGET"; then
@@ -81,12 +82,10 @@ if [ -s "$RESULTS_FILE" ]; then
     cnt=$(wc -l < "$RESULTS_FILE")
 fi
 
-# (Trap handles cleanup automatically now when script exits)
-
-# --- 8. Append & Restart Logic ---
+# --- 8. Action & Restart Logic ---
 if [ "$cnt" -gt 0 ]; then
     
-    # Safety: If >50 apps appear new, assume a read error and abort.
+    # Safety: If >50 apps appear new, assume something is wrong.
     if [ "$cnt" -gt 50 ]; then
         log_print "⚠️ Safety: Detected $cnt new apps. Aborting to prevent duplication."
         exit 1
@@ -97,7 +96,7 @@ if [ "$cnt" -gt 0 ]; then
     # Append
     echo "$NEW_APPS" >> "$TARGET_FILE"
     
-    # Log
+    # Log (Flatten new apps to single line for clean log)
     clean_log=$(echo "$NEW_APPS" | tr '\n' ' ')
     log_print "Added: $clean_log"
 
