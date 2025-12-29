@@ -26,6 +26,7 @@ if [ ! -f "$TS_HELPER/config.txt" ]; then
 FORCE_LEAF_HACK=false
 FORCE_CERT_GEN=false
 USE_DEFAULT_EXCLUSIONS=true
+RUN_ON_BOOT=true
 EOF
 fi
 

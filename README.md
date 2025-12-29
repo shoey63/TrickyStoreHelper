@@ -4,31 +4,60 @@
 
 > **Note:** This is an enhanced fork of [CaptainThrowback's original helper](https://github.com/CaptainThrowback/TrickyStoreHelper), optimized for speed and compatibility with KernelSU, APatch, and Magisk.
 
-## ⚡ Features (v0.3.1)
+## ✨ Features (v0.4.0)
 
-* **🚀 Stream Engine:** Completely rewritten generation logic using a high-performance pipeline (`Pipe` -> `Sort` -> `Awk`). Zero temporary files, instant results.
-* **🛡️ Pollution-Proof:** Smart filtering ignores garbage output from root managers (fixing empty lists on APatch/crDroid).
-* **🔒 Atomic Boot Lock:** Prevents double-execution race conditions during boot on all root solutions.
-* **⚙️ Robust Config:** New config parser ignores accidental spaces, tabs, and Windows line endings (`\r`).
-* **📱 Live UI:** Full support for "Action" buttons in Magisk, KernelSU, and APatch with real-time status logs.
-* **✅ Smart Verification:** Verifies if GMS/Play Store were actually running before attempting to restart them.
+* **👁️ Live Monitor Daemon:**
+    * Instantly detects when you install a new app.
+    * Appends it to `target.txt` and restarts TrickyStore automatically.
+    * **Smart Logic:** Respects your `exclude.txt` and ignores system updates.
+    * **Conflict-Free:** Only adds *missing* apps. It never touches your existing entries or custom suffixes (`?`/`!`).
+* **🎮 Interactive Control Panel:**
+    * Run the service script in a terminal to view status, stop, or start the daemon.
+* **🛡️ "Set & Forget" Architecture:**
+    * **Zero Battery Drain:** Uses event-driven `inotifyd` (sleeps until an app is installed).
+    * **Keep-Alive:** Automatically recovers if the system rotates package logs.
+* **⚡ Optimized Generator:**
+    * High-speed generation logic compatible with Magisk, KernelSU, and APatch.
+* **🔒 Atomic Boot Lock:**
+    * Prevents double-execution race conditions during boot on all root solutions.
 
 ## 📦 Installation
 
 1.  Ensure **TrickyStore** is already installed.
-2.  Flash `TrickyStoreHelper_v0.3.1.zip` in your root manager (Magisk/KSU/APatch).
+2.  Flash `TrickyStoreHelper_v0.4.0.zip` in your root manager (Magisk/KSU/APatch).
 3.  Reboot.
 
 ## 🛠️ Usage
 
-### Automatic (Boot)
-The module automatically generates a fresh `target.txt` on every boot to ensure your app list is always up to date.
-* *Note: This can be disabled in `config.txt` by setting `RUN_ON_BOOT=false`.*
+### 1. Automatic (Live Monitor)
+Just use your phone normally.
+* **Install an App:** The Live Monitor sees it, adds it to `target.txt`, and reloads the store.
+* **Uninstall an App:** The entry remains (safe) until you decide to clean it up manually.
 
-### Manual (Action Button)
-You can manually trigger a regeneration at any time:
-* **KernelSU / APatch:** Go to the Modules tab, tap **TrickyStore Helper**, and select **Action** (or "Generate List").
-* **Magisk:** Run the command `su -c sh /data/adb/modules/trickystorehelper/action.sh` in a terminal (Termux).
+### 2. Manual Cleanup (Action Button)
+If you want to remove uninstalled apps or force global suffixes:
+* Open your Root Manager (Magisk, KernelSU, or APatch).
+* Go to the **Modules** tab.
+* Tap the **Action** button on the TrickyStore Helper card.
+
+### 3. The Control Panel (Terminal)
+You can manage the background service manually via Termux or ADB:
+
+```bash
+su -c sh /data/adb/modules/trickystorehelper/service.sh
+```
+
+This opens the interactive menu:
+```text
+========================================
+   TrickyStore Helper - Control Panel   
+========================================
+ STATUS:  🟢 RUNNING
+ Watcher: 12345
+ Loop:    12340
+========================================
+ Do you want to STOP the service? (y/n): 
+```
 
 ## ⚙️ Configuration
 
@@ -44,24 +73,30 @@ The configuration files are located at:
 
 ### `config.txt` Options
 
-| Option | Values | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `FORCE_LEAF_HACK` | `true`/`false` | `false` | Appends `?` to all packages (Soft bypass). |
-| `FORCE_CERT_GEN` | `true`/`false` | `false` | Appends `!` to all packages (Hard bypass). |
-| `USE_DEFAULT_EXCLUSIONS` | `true`/`false` | `true` | Excludes system apps, keeps user apps & GMS. |
-| `RUN_ON_BOOT` | `true`/`false` | `true` | Controls if the script runs automatically at startup. |
+| Option | Default | Description |
+| :--- | :--- | :--- |
+| `RUN_ON_BOOT` | `true` | If `true`, regenerates the full list on every boot. Set to `false` to preserve manual edits across reboots (Monitor still runs). |
+| `USE_DEFAULT_EXCLUSIONS` | `true` | Excludes system apps, keeps user apps & GMS. |
+| `FORCE_LEAF_HACK` | `false` | **Generator Only:** Appends `?` to all packages (Soft bypass) during full rebuilds. |
+| `FORCE_CERT_GEN` | `false` | **Generator Only:** Appends `!` to all packages (Hard bypass) during full rebuilds. |
 
 ## 📝 Changelog
+
+### v0.4.0: The "Set & Forget" Update
+This major release introduces a zero-configuration **Live Monitor**, changing how you manage your `target.txt`.
+* **New:** **Live Monitor Daemon** - Watches for new app installs and adds them instantly.
+* **New:** **Interactive Control Panel** - Run `service.sh` in terminal to manage the daemon.
+* **New:** **Differential Update** - Only adds *missing* apps; never duplicates or touches existing entries.
+* **Improved:** **Service Persistence** - Daemon automatically recovers if the system rotates package logs (Keep-Alive).
+* **Fixed:** **Race Conditions** - Added settlement delays to prevent "ghost" additions during uninstalls.
 
 ### v0.3.1
 * **Critical Fix:** Added `grep` filter to ignore "Failure calling service" errors polluting the stream on APatch.
 * **New:** Implemented atomic locking (`mkdir`) to prevent double-execution on boot.
 * **New:** Added `RUN_ON_BOOT` config option to optionally skip boot generation.
 * **Improvement:** Startup logic now verifies TrickyStore folder existence before creating helper files.
-* **Improvement:** Config parser now strips all invisible whitespace/tabs for better compatibility.
 
 ### v0.3.0
-* **New Engine:** Rewrote generation logic using a stream processor for massive performance gains.
+* **New Engine:** Rewrote generation logic using a stream processor (`Pipe` -> `Sort` -> `Awk`) for massive performance gains.
 * **UI:** Added Action Button support with live status output.
 * **Boot:** Optimized boot script with permission auto-fixer.
-* **Fixes:** Improved handling of Windows line endings in config files.
