@@ -1,8 +1,7 @@
 # .github/workflows/main.yml
 name: Android CI
 
-run-name: Add cooment functionality for exclude and force files $
-{{ inputs.create_release == 'true' && '🚀 Release' || format('🛠️ {0}', github.ref_name) }} — ${{ github.event.head_commit.message }}
+run-name: ${{ inputs.create_release == 'true' && '🚀 Release' || format('🛠️ {0}', github.ref_name) }} — ${{ github.event.head_commit.message }}
 on:
   workflow_dispatch:
     inputs:
