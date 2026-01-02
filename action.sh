@@ -88,7 +88,7 @@ if [ "$FORCE_LEAF" = "true" ] && [ "$FORCE_CERT" = "true" ]; then
     echo " "
     echo "------------------------------------------------"
     FORCE_LEAF="false"; FORCE_CERT="false"
-    sleep_ui 1
+    sleep_ui 3
 fi
 
 # Determine Suffix
@@ -133,8 +133,9 @@ generate_stream | sort -u | awk \
         is_global="false";
     }
 
-    # 1. Load Exclusions
+        # 1. Load Exclusions
     FILENAME == excl_file {
+        if ($0 ~ /^[ \t]*#/) next; # Skip comments
         val = clean($0);
         if (val != "") { excludes[val]=1; cnt_excl_file++; }
         next
@@ -142,6 +143,7 @@ generate_stream | sort -u | awk \
 
     # 2. Load Force List
     FILENAME == force_file {
+        if ($0 ~ /^[ \t]*#/) next; # Skip comments
         val = clean($0);
         if (val != "") { forced[val]=1; cnt_force_file++; }
         next
