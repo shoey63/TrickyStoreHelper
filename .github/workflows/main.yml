@@ -1,5 +1,5 @@
 # .github/workflows/main.yml
-name: Android CI
+name: Acion.sh add comment out for force and exclude
 
 on:
   workflow_dispatch:
