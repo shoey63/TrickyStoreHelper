@@ -1,6 +1,8 @@
 # .github/workflows/main.yml
 name: Android CI
 
+run-name: ${{ inputs.create_release == 'true' && '🚀 Release' || '🛠️ CI Build' }} by ${{ github.actor }}
+
 on:
   workflow_dispatch:
     inputs:
@@ -12,7 +14,7 @@ on:
         options:
           - "false"
           - "true"
-
+          
 jobs:
   build:
     name: Build & Package Module
