@@ -1,7 +1,10 @@
 # .github/workflows/main.yml
 name: Android CI
 
-run-name: ${{ inputs.create_release == 'true' && '🚀 Release' || format('🛠️ {0}', github.ref_name) }} — ${{ github.event.head_commit.message }}
+run-name: >-
+  ${{ inputs.create_release == 'true' && '🚀 Release' || format('🛠️ {0}', github.ref_name) }} 
+  ${{ github.event.head_commit.message != null && format('— {0}', github.event.head_commit.message) || format('by @{0}', github.actor) }}
+
 on:
   workflow_dispatch:
     inputs:
