@@ -1,7 +1,6 @@
 # .github/workflows/main.yml
 name: Android CI
 
-run-name: ${{ inputs.create_release == 'true' && '🚀 Release' || format('🛠️ {0}', github.ref_name) }} — ${{ github.event.head_commit.message }}
 on:
   workflow_dispatch:
     inputs:
@@ -13,7 +12,7 @@ on:
         options:
           - "false"
           - "true"
-          
+
 jobs:
   build:
     name: Build & Package Module
