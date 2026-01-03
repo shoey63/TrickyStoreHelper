@@ -1,5 +1,5 @@
 # .github/workflows/main.yml
-name: Android CI
+name: Android CI2
 
 run-name: ${{ inputs.create_release == 'true' && '🚀 Release' || '🛠️ CI Build' }} by ${{ github.actor }}
 
