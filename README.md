@@ -4,7 +4,7 @@
 
 > **Note:** This is an enhanced fork of [CaptainThrowback's original helper](https://github.com/CaptainThrowback/TrickyStoreHelper), optimized for speed and compatibility with KernelSU, APatch, and Magisk.
 
-## ✨ Features (v0.4.0)
+## ✨ Features (from v0.4.0+)
 
 * **👁️ Live Monitor Daemon:**
     * Instantly detects when you install a new app.
@@ -67,9 +67,12 @@ The configuration files are located at:
 | File | Description |
 | :--- | :--- |
 | **`config.txt`** | Main settings file. |
-| **`exclude.txt`** | List of package names to **always ignore** (remove from `target.txt`). |
-| **`force.txt`** | List of package names to **always include** (even if not installed). |
+| **`exclude.txt`** | List of package names to **always ignore** (remove from `target.txt`). Prexfixing with # will add them back. |
+| **`force.txt`** | List of package names to **always include** (even if not installed). Prefixing with # will remove them. |
 | **`TSHelper.log`** | Execution logs and debug info. |
+
+**NOTE:** Do *not* comment out entries in `target.txt`, they will get re-added by the ***Live Monitor*** Use `exclude.txt` instead.
+
 
 ### `config.txt` Options
 
@@ -78,9 +81,12 @@ The configuration files are located at:
 | `RUN_ON_BOOT` | `true` | If `true`, regenerates the full list on every boot. Set to `false` to preserve manual edits across reboots (Monitor still runs). |
 | `USE_DEFAULT_EXCLUSIONS` | `true` | Excludes system apps, keeps user apps & GMS. |
 | `FORCE_LEAF_HACK` | `false` | **Generator Only:** Appends `?` to all packages (Soft bypass) during full rebuilds. |
-| `FORCE_CERT_GEN` | `false` | **Generator Only:** Appends `!` to all packages (Hard bypass) during full rebuilds. |
+| `FORCE_CERT_GEN` | `false` | ** Only:** Appends `!` to all packagesGenerator (Hard bypass) during full rebuilds. |
 
 ## 📝 Changelog
+
+### v0.4.1
+Enabled commenting out (#) of entries in `exclude.txt` and `force.txt`
 
 ### v0.4.0: The "Set & Forget" Update
 This major release introduces a zero-configuration **Live Monitor**, changing how you manage your `target.txt`.
