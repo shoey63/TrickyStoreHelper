@@ -6,7 +6,7 @@ run-name: >-
   ${{ github.event.head_commit.message != null && format('— {0}', github.event.head_commit.message) || format('by @{0}', github.actor) }}
 
 on:
-push:
+  push:
   workflow_dispatch:
     inputs:
       create_release:
