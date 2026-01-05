@@ -85,6 +85,10 @@ The configuration files are located at:
 
 ## 📝 Changelog
 
+### v1.0.0
+
+Bump pre-release 0.4.1 to release 1.0.0
+
 ### v0.4.1
 Enabled commenting out (#) of entries in `exclude.txt` and `force.txt`
 
