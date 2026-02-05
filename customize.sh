@@ -31,10 +31,37 @@ EOF
 fi
 
 # --- 4. File Initialization ---
-# Create empty exclude.txt if missing
-[ ! -f "$TS_HELPER/exclude.txt" ] && touch "$TS_HELPER/exclude.txt"
 
-# Create empty force.txt if missing
-[ ! -f "$TS_HELPER/force.txt" ] && touch "$TS_HELPER/force.txt"
+EXCLUDE_FILE="$TS_HELPER/exclude.txt"
+FORCE_FILE="$TS_HELPER/force.txt"
+
+# --- 4A. Seed exclude.txt with all user apps (opt-in model) ---
+if [ ! -f "$EXCLUDE_FILE" ]; then
+    ui_print "  - Generating exclude.txt (opt-in app list)"
+
+    {
+        echo "# TrickyStore Helper — Exclusion List"
+        echo "# All user apps are excluded by default."
+        echo "# Comment out apps you want included in target.txt"
+        echo "#"
+        pm list packages -3 2>/dev/null \
+            | grep '^package:' \
+            | cut -d: -f2 \
+            | sort
+    } > "$EXCLUDE_FILE"
+fi
+
+# --- 4B. Seed force.txt with core packages ---
+if [ ! -f "$FORCE_FILE" ]; then
+    ui_print "  - Seeding force.txt with core packages"
+
+    cat <<EOF > "$FORCE_FILE"
+# TrickyStore Helper — Forced packages
+# Add ? or ! suffixes as desired
+
+com.google.android.gms
+com.android.vending
+EOF
+fi
 
 ui_print "- ✅ Setup complete!"
