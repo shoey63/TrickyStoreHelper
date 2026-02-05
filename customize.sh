@@ -42,8 +42,9 @@ if [ ! -f "$EXCLUDE_FILE" ]; then
     {
         echo "# TrickyStore Helper — Exclusion List"
         echo "# All user apps are excluded by default."
+        echo "# Newly installed apps are automatically added." 
         echo "# Comment out apps you want included in target.txt"
-        echo "#"
+        echo "" 
         pm list packages -3 2>/dev/null \
             | grep '^package:' \
             | cut -d: -f2 \
@@ -58,6 +59,7 @@ if [ ! -f "$FORCE_FILE" ]; then
     cat <<EOF > "$FORCE_FILE"
 # TrickyStore Helper — Forced packages
 # Add ? or ! suffixes as desired
+# Comment out to remove from target.txt
 
 com.google.android.gms
 com.android.vending
