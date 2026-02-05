@@ -145,7 +145,7 @@ FILENAME == excl_file {
 # Process stream
 FILENAME == "-" {
     raw = clean($0)
-    if (raw == "") next
+    if (raw == "" || raw ~ /^#/) next
 
     # split suffix if user provided one
     pkg = raw
