@@ -51,6 +51,9 @@ generate_candidates() {
     if [ "$USE_DEF_EXCL" = "true" ]; then
         # User Apps Only (-3 flag)
         pm list packages -3 2>/dev/null | grep '^package:' | cut -d: -f2
+        # Always check GMS and Play Store
+        echo "com.google.android.gms"
+        echo "com.android.vending"
     else
         # All Apps (System + User)
         pm list packages 2>/dev/null | grep '^package:' | cut -d: -f2
