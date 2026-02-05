@@ -103,98 +103,89 @@ sleep_ui 0.7
 
 # 1. Define the input stream generator (Now with Pollution Filter)
 generate_stream() {
-    # A. List installed packages
-    # We explicitly filter for lines starting with 'package:' to ignore APatch errors
+    # Installed packages only
     if [ "$USE_DEF_EXCL" = "true" ]; then
         pm list packages -3 2>/dev/null | grep '^package:' | cut -d: -f2
-        # Inject criticals
-        echo "com.google.android.gms"
-        echo "com.android.vending"
     else
         pm list packages 2>/dev/null | grep '^package:' | cut -d: -f2
     fi
-    
-    # B. Append force list (strip CR just in case)
+
+    # Overlay force list (verbatim)
     tr -d '\r' < "$FORCE_FILE"
 }
 
 # 2. Run the Pipeline
 generate_stream | sort -u | awk \
-    -v suffix="$SUFFIX" \
-    -v excl_file="$EXCLUDE_FILE" \
-    -v force_file="$FORCE_FILE" \
-    -v target_file="$TARGET_FILE" \
-    '
-    function clean(s) { gsub(/\r/, "", s); gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+-v suffix="$SUFFIX" \
+-v excl_file="$EXCLUDE_FILE" \
+-v force_file="$FORCE_FILE" \
+-v target_file="$TARGET_FILE" \
+'
+function clean(s) {
+    gsub(/\r/, "", s)
+    gsub(/^[ \t]+|[ \t]+$/, "", s)
+    return s
+}
 
-    BEGIN {
-        cnt_excl_file=0; cnt_force_file=0; 
-        cnt_tagged=0; cnt_removed=0; cnt_total=0;
-        is_global="false";
+BEGIN {
+    cnt_excl=0
+    cnt_total=0
+    cnt_tagged=0
+    global_mode = (suffix != "")
+}
+
+# Load exclusions
+FILENAME == excl_file {
+    if ($0 ~ /^[ \t]*#/) next
+    val = clean($0)
+    if (val != "") excludes[val]=1
+    next
+}
+
+# Process stream
+FILENAME == "-" {
+    raw = clean($0)
+    if (raw == "") next
+
+    # split suffix if user provided one
+    pkg = raw
+    user_suffix = ""
+
+    if (raw ~ /[?!]$/) {
+        pkg = substr(raw, 1, length(raw)-1)
+        user_suffix = substr(raw, length(raw), 1)
     }
 
-        # 1. Load Exclusions
-    FILENAME == excl_file {
-        if ($0 ~ /^[ \t]*#/) next; # Skip comments
-        val = clean($0);
-        if (val != "") { excludes[val]=1; cnt_excl_file++; }
+    if (pkg in excludes) {
+        cnt_excl++
         next
     }
 
-    # 2. Load Force List
-    FILENAME == force_file {
-        if ($0 ~ /^[ \t]*#/) next; # Skip comments
-        val = clean($0);
-        if (val != "") { forced[val]=1; cnt_force_file++; }
-        next
+    if (global_mode) {
+        print pkg suffix > target_file
+        cnt_tagged++
+    } else {
+        # manual mode: preserve user suffix
+        print raw > target_file
+        if (user_suffix != "") cnt_tagged++
     }
 
-    # 3. Check Global Mode
-    FNR == 1 && FILENAME == "-" {
-        if (cnt_force_file == 0 && suffix != "") is_global="true";
-    }
+    cnt_total++
+}
 
-    # 4. Process the Stream
-    FILENAME == "-" {
-        pkg = clean($0);
-        if (pkg == "") next;
+END {
+    if (suffix == "?")
+        print "   * Active Mode: GLOBAL LEAF_HACK"
+    else if (suffix == "!")
+        print "   * Active Mode: GLOBAL CERT_GEN"
+    else
+        print "   * Active Mode: MANUAL"
 
-        # Skip Exclusions
-        if (pkg in excludes) {
-            cnt_removed++;
-            next;
-        }
-
-        # Apply Tags
-        if (is_global == "true") {
-            print pkg suffix > target_file
-            cnt_tagged++
-        } 
-        else if (pkg in forced) {
-            print pkg suffix > target_file
-            cnt_tagged++
-        } 
-        else {
-            print pkg > target_file
-        }
-        cnt_total++;
-    }
-
-    # 5. Print Detailed UI Stats
-    END {
-        if (suffix == "?") {
-            print "   * Active Mode: LEAF_HACK (? applied to " cnt_tagged " apps)"
-        } else if (suffix == "!") {
-            print "   * Active Mode: CERT_GEN (! applied to " cnt_tagged " apps)"
-        } else {
-            print "   * Active Mode: None"
-        }
-
-        print "   * Forced Apps: " cnt_force_file
-        print "   * Excluded:    " cnt_removed
-        print "   * Total Packages: " cnt_total
-    }
-' "$EXCLUDE_FILE" "$FORCE_FILE" - | while read -r line; do ui_print "$line"; done
+    print "   * Excluded: " cnt_excl
+    print "   * Tagged:   " cnt_tagged
+    print "   * Total:    " cnt_total
+}
+' "$EXCLUDE_FILE" - | while read -r line; do ui_print "$line"; done
 
 sleep_ui 0.7
 
