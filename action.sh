@@ -115,6 +115,8 @@ generate_stream() {
 }
 
 # 2. Run the Pipeline
+: > "$TARGET_FILE"
+
 generate_stream | sort -u | awk \
 -v suffix="$SUFFIX" \
 -v excl_file="$EXCLUDE_FILE" \
@@ -132,6 +134,20 @@ BEGIN {
     cnt_total=0
     cnt_tagged=0
     global_mode = (suffix != "")
+
+    # preload forced packages
+    while ((getline line < force_file) > 0) {
+        if (line ~ /^[ \t]*#/) continue
+        val = clean(line)
+        if (val == "") continue
+
+        pkg = val
+        if (val ~ /[?!]$/)
+            pkg = substr(val, 1, length(val)-1)
+
+        forced[pkg] = 1
+    }
+    close(force_file)
 }
 
 # Load exclusions
@@ -150,23 +166,30 @@ FILENAME == "-" {
     # split suffix if user provided one
     pkg = raw
     user_suffix = ""
+    
+    # If this is a discovered package and a forced version exists,
+# suppress the discovered copy
+if (user_suffix == "" && pkg in forced)
+    next
 
     if (raw ~ /[?!]$/) {
         pkg = substr(raw, 1, length(raw)-1)
         user_suffix = substr(raw, length(raw), 1)
     }
 
-    if (pkg in excludes) {
-        cnt_excl++
-        next
-    }
+   # Exclusions apply only to discovered packages
+# Forced entries override exclusions
+if (pkg in excludes && user_suffix == "") {
+    cnt_excl++
+    next
+}
 
     if (global_mode) {
-        print pkg suffix > target_file
+        print pkg suffix >> target_file
         cnt_tagged++
     } else {
         # manual mode: preserve user suffix
-        print raw > target_file
+        print raw >> target_file
         if (user_suffix != "") cnt_tagged++
     }
 
