@@ -44,7 +44,7 @@ touch "$EXCLUDE_FILE" "$FORCE_FILE" "$LOG_FILE"
 # UI Functions
 ui_print() { echo "$1"; echo "$(date '+%T') UI: $1" >> "$LOG_FILE"; }
 
-# 1.1 Log Boot Mode if active
+# Log Boot Mode if active
 if [ "$IS_BOOT" = "true" ]; then
     echo "$(date '+%T') UI: 🚀 Boot mode detected. Sleep commands disabled." >> "$LOG_FILE"
 fi
@@ -101,7 +101,7 @@ SUFFIX=""
 ui_print "-> Generating and processing list..."
 sleep_ui 0.7
 
-# 1. Define the input stream generator (Now with Pollution Filter)
+# A. Define the input stream generator
 generate_stream() {
     # Installed packages only
     if [ "$USE_DEF_EXCL" = "true" ]; then
@@ -109,12 +109,9 @@ generate_stream() {
     else
         pm list packages 2>/dev/null | grep '^package:' | cut -d: -f2
     fi
-
-    # Overlay force list (verbatim)
-    tr -d '\r' < "$FORCE_FILE"
 }
 
-# 2. Run the Pipeline
+# B. Run the Pipeline
 : > "$TARGET_FILE"
 
 generate_stream | sort -u | awk \
@@ -135,60 +132,62 @@ BEGIN {
     cnt_tagged=0
     global_mode = (suffix != "")
 
-    # preload forced packages
-    while ((getline line < force_file) > 0) {
+    # --- Phase 1: Load exclusions ---
+    while ((getline line < excl_file) > 0) {
         if (line ~ /^[ \t]*#/) continue
         val = clean(line)
-        if (val == "") continue
+        if (val != "") excludes[val]=1
+    }
+    close(excl_file)
 
-        pkg = val
-        if (val ~ /[?!]$/)
-            pkg = substr(val, 1, length(val)-1)
+    # --- Phase 2: Process force.txt (ABSOLUTE PRIORITY) ---
+    while ((getline line < force_file) > 0) {
+        if (line ~ /^[ \t]*#/) continue
+        raw = clean(line)
+        if (raw == "") continue
 
-        forced[pkg] = 1
+        pkg = raw
+        if (raw ~ /[?!]$/)
+            pkg = substr(raw, 1, length(raw)-1)
+
+        forced[pkg] = raw
+
+        # print forced entry exactly as user wrote it
+        print raw >> target_file
+
+        if (raw ~ /[?!]$/) cnt_tagged++
+        cnt_total++
     }
     close(force_file)
 }
 
-# Load exclusions
-FILENAME == excl_file {
-    if ($0 ~ /^[ \t]*#/) next
-    val = clean($0)
-    if (val != "") excludes[val]=1
-    next
-}
-
-# Process stream
-FILENAME == "-" {
+# --- Phase 3: Process discovered packages ---
+{
     raw = clean($0)
     if (raw == "" || raw ~ /^#/) next
 
-    # split suffix if user provided one
     pkg = raw
     user_suffix = ""
-    
-    # If this is a discovered package and a forced version exists,
-# suppress the discovered copy
-if (user_suffix == "" && pkg in forced)
-    next
 
     if (raw ~ /[?!]$/) {
         pkg = substr(raw, 1, length(raw)-1)
         user_suffix = substr(raw, length(raw), 1)
     }
 
-   # Exclusions apply only to discovered packages
-# Forced entries override exclusions
-if (pkg in excludes && user_suffix == "") {
-    cnt_excl++
-    next
-}
+    # forced packages already printed — skip duplicates
+    if (pkg in forced)
+        next
+
+    # exclusions apply only to non-forced
+    if (pkg in excludes) {
+        cnt_excl++
+        next
+    }
 
     if (global_mode) {
         print pkg suffix >> target_file
         cnt_tagged++
     } else {
-        # manual mode: preserve user suffix
         print raw >> target_file
         if (user_suffix != "") cnt_tagged++
     }
@@ -208,8 +207,7 @@ END {
     print "   * Tagged:   " cnt_tagged
     print "   * Total:    " cnt_total
 }
-' "$EXCLUDE_FILE" - | while read -r line; do ui_print "$line"; done
-
+' | while read -r line; do ui_print "$line"; done
 sleep_ui 0.7
 
 # --- 3. Finalize ---
