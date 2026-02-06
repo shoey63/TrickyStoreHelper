@@ -130,6 +130,7 @@ BEGIN {
     cnt_excl=0
     cnt_total=0
     cnt_tagged=0
+    cnt_forced=0
     global_mode = (suffix != "")
 
     # --- Phase 1: Load exclusions ---
@@ -157,8 +158,16 @@ BEGIN {
 
         if (raw ~ /[?!]$/) cnt_tagged++
         cnt_total++
+        cnt_forced++
     }
     close(force_file)
+
+    # --- Visual separator after forced block ---
+    if (cnt_forced > 0) {
+        print "🛠️ End of Forced List 🛠️" >> target_file
+        print "" >> target_file
+        print "🔎 Discovered Apps 🔎" >> target_file
+    }
 }
 
 # --- Phase 3: Process discovered packages ---
