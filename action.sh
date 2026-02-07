@@ -114,15 +114,14 @@ generate_stream() {
 # B. Run the Pipeline
 : > "$TARGET_FILE"
 
-generate_stream | sort -u | awk \
+generate_stream | awk \
 -v suffix="$SUFFIX" \
 -v excl_file="$EXCLUDE_FILE" \
 -v force_file="$FORCE_FILE" \
 -v target_file="$TARGET_FILE" \
 '
-
 function clean(s) {
-    sub(/[ \t]*#.*/, "", s)     # strip inline comments
+    sub(/#.*/, "", s)            # strip inline comments
     gsub(/\r/, "", s)
     gsub(/^[ \t]+|[ \t]+$/, "", s)
     return s
@@ -138,55 +137,53 @@ BEGIN {
     cnt_tagged=0
     global_mode = (suffix != "")
 
-    # --- load exclusions ---
+    # --- Load exclusions ---
     while ((getline line < excl_file) > 0) {
+        if (line ~ /^[ \t]*#/) continue
         val = clean(line)
         if (val != "") excludes[val]=1
     }
     close(excl_file)
 
-   # --- process force.txt (absolute priority) ---
-while ((getline line < force_file) > 0) {
-    raw = clean(line)
-    if (raw == "") continue
+    # --- Phase 1: FORCE.TXT (absolute priority) ---
+    while ((getline line < force_file) > 0) {
+        raw = clean(line)
+        if (raw == "") continue
 
-    pkg = raw
-    if (raw ~ /[?!]$/)
-        pkg = substr(raw, 1, length(raw)-1)
+        pkg = raw
+        if (raw ~ /[?!]$/)
+            pkg = substr(raw, 1, length(raw)-1)
 
-    if (!valid_pkg(pkg)) continue
+        if (!valid_pkg(pkg)) continue
+        if (pkg in seen) continue
 
-    # last occurrence wins
-    forced[pkg] = raw
-}
-close(force_file)
+        print raw >> target_file
 
-# print deduplicated forced packages
-for (pkg in forced) {
-    raw = forced[pkg]
+        seen[pkg]=1
+        forced[pkg]=1
 
-    print raw >> target_file
-
-    if (raw ~ /[?!]$/) cnt_tagged++
-    cnt_total++
-}
+        if (raw ~ /[?!]$/) cnt_tagged++
+        cnt_total++
+    }
+    close(force_file)
 
     print "🛠️ End of Forced List 🛠️" >> target_file
     print "" >> target_file
     print "🔎 Discovered Apps 🔎" >> target_file
 }
 
-# --- discovered packages ---
+# --- Phase 2: discovered packages (stream input) ---
 {
     raw = clean($0)
     if (raw == "") next
 
     pkg = raw
+    if (raw ~ /[?!]$/)
+        pkg = substr(raw, 1, length(raw)-1)
 
-    # skip if forced already printed
-    if (pkg in forced) next
+    if (!valid_pkg(pkg)) next
+    if (pkg in seen) next
 
-    # skip exclusions
     if (pkg in excludes) {
         cnt_excl++
         next
@@ -199,6 +196,7 @@ for (pkg in forced) {
         print pkg >> target_file
     }
 
+    seen[pkg]=1
     cnt_total++
 }
 
