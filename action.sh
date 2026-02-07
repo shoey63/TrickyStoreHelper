@@ -126,6 +126,10 @@ function clean(s) {
     return s
 }
 
+function valid_pkg(s) {
+    return (s ~ /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+$/)
+}
+
 BEGIN {
     cnt_excl=0
     cnt_total=0
@@ -142,27 +146,33 @@ BEGIN {
     close(excl_file)
 
     # --- Phase 2: Process force.txt (ABSOLUTE PRIORITY) ---
-    while ((getline line < force_file) > 0) {
-        if (line ~ /^[ \t]*#/) continue
-        raw = clean(line)
-        if (raw == "") continue
+while ((getline line < force_file) > 0) {
 
-        pkg = raw
-        if (raw ~ /[?!]$/)
-            pkg = substr(raw, 1, length(raw)-1)
+    if (line ~ /^[ \t]*#/) continue
 
+    raw = clean(line)
+
+    # strip inline comments
+    sub(/[ \t]*#.*/, "", raw)
+    raw = clean(raw)
+
+    if (raw == "") continue
+
+    pkg = raw
+    if (raw ~ /[?!]$/)
+        pkg = substr(raw, 1, length(raw)-1)
+
+    if (valid_pkg(pkg)) {
         forced[pkg] = raw
-
-        # print forced entry exactly as user wrote it
         print raw >> target_file
 
         if (raw ~ /[?!]$/) cnt_tagged++
         cnt_total++
         cnt_forced++
     }
-    close(force_file)
+}
+close(force_file)
 
-    # --- Visual separator after forced block ---
     if (cnt_forced > 0) {
         print "🛠️ End of Forced List 🛠️" >> target_file
         print "" >> target_file
