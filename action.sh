@@ -120,7 +120,9 @@ generate_stream | sort -u | awk \
 -v force_file="$FORCE_FILE" \
 -v target_file="$TARGET_FILE" \
 '
+
 function clean(s) {
+    sub(/[ \t]*#.*/, "", s)     # strip inline comments
     gsub(/\r/, "", s)
     gsub(/^[ \t]+|[ \t]+$/, "", s)
     return s
@@ -134,70 +136,57 @@ BEGIN {
     cnt_excl=0
     cnt_total=0
     cnt_tagged=0
-    cnt_forced=0
     global_mode = (suffix != "")
 
-    # --- Phase 1: Load exclusions ---
+    # --- load exclusions ---
     while ((getline line < excl_file) > 0) {
-        if (line ~ /^[ \t]*#/) continue
         val = clean(line)
         if (val != "") excludes[val]=1
     }
     close(excl_file)
 
-    # --- Phase 2: Process force.txt (ABSOLUTE PRIORITY) ---
+   # --- process force.txt (absolute priority) ---
 while ((getline line < force_file) > 0) {
-
-    if (line ~ /^[ \t]*#/) continue
-
     raw = clean(line)
-
-    # strip inline comments
-    sub(/[ \t]*#.*/, "", raw)
-    raw = clean(raw)
-
     if (raw == "") continue
 
     pkg = raw
     if (raw ~ /[?!]$/)
         pkg = substr(raw, 1, length(raw)-1)
 
-    if (valid_pkg(pkg)) {
-        forced[pkg] = raw
-        print raw >> target_file
+    if (!valid_pkg(pkg)) continue
 
-        if (raw ~ /[?!]$/) cnt_tagged++
-        cnt_total++
-        cnt_forced++
-    }
+    # last occurrence wins
+    forced[pkg] = raw
 }
 close(force_file)
 
-    if (cnt_forced > 0) {
-        print "🛠️ End of Forced List 🛠️" >> target_file
-        print "" >> target_file
-        print "🔎 Discovered Apps 🔎" >> target_file
-    }
+# print deduplicated forced packages
+for (pkg in forced) {
+    raw = forced[pkg]
+
+    print raw >> target_file
+
+    if (raw ~ /[?!]$/) cnt_tagged++
+    cnt_total++
 }
 
-# --- Phase 3: Process discovered packages ---
+    print "🛠️ End of Forced List 🛠️" >> target_file
+    print "" >> target_file
+    print "🔎 Discovered Apps 🔎" >> target_file
+}
+
+# --- discovered packages ---
 {
     raw = clean($0)
-    if (raw == "" || raw ~ /^#/) next
+    if (raw == "") next
 
     pkg = raw
-    user_suffix = ""
 
-    if (raw ~ /[?!]$/) {
-        pkg = substr(raw, 1, length(raw)-1)
-        user_suffix = substr(raw, length(raw), 1)
-    }
+    # skip if forced already printed
+    if (pkg in forced) next
 
-    # forced packages already printed — skip duplicates
-    if (pkg in forced)
-        next
-
-    # exclusions apply only to non-forced
+    # skip exclusions
     if (pkg in excludes) {
         cnt_excl++
         next
@@ -207,8 +196,7 @@ close(force_file)
         print pkg suffix >> target_file
         cnt_tagged++
     } else {
-        print raw >> target_file
-        if (user_suffix != "") cnt_tagged++
+        print pkg >> target_file
     }
 
     cnt_total++
