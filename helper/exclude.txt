@@ -1,0 +1,4 @@
+# TrickyStore Helper — Exclusion List
+# All user apps are excluded by default.
+# Newly installed apps are automatically added.
+# Comment out apps you want included in target.txt
