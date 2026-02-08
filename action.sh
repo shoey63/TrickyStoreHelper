@@ -119,6 +119,7 @@ generate_stream | awk \
 -v excl_file="$EXCLUDE_FILE" \
 -v force_file="$FORCE_FILE" \
 -v target_file="$TARGET_FILE" \
+-v log_file="/data/adb/tricky_store/helper/TSHelper.log" \
 '
 function clean(s,   suffix, base, rest) {
     gsub(/\r/, "", s)
@@ -132,7 +133,7 @@ function clean(s,   suffix, base, rest) {
 
     suffix = ""
 
-    # check for optional space + suffix
+    # optional space + suffix
     if (match(rest, /^[ \t]*[?!]/))
         suffix = substr(rest, RSTART + RLENGTH - 1, 1)
 
@@ -145,10 +146,12 @@ function valid_pkg(s) {
     return (s ~ /^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+$/)
 }
 
+
 BEGIN {
     cnt_excl=0
     cnt_total=0
     cnt_tagged=0
+    dup_forced=0
     global_mode = (suffix != "")
 
     # --- Load exclusions ---
@@ -169,7 +172,13 @@ BEGIN {
             pkg = substr(raw, 1, length(raw)-1)
 
         if (!valid_pkg(pkg)) continue
-        if (pkg in seen) continue
+
+        # duplicate detection
+        if (pkg in seen) {
+            dup_forced++
+            dup_list[pkg]++
+            continue
+        }
 
         print raw >> target_file
 
@@ -186,7 +195,7 @@ BEGIN {
     print "🔎 Discovered Apps 🔎" >> target_file
 }
 
-# --- Phase 2: discovered packages (stream input) ---
+# --- Phase 2: discovered packages ---
 {
     raw = clean($0)
     if (raw == "") next
@@ -215,6 +224,16 @@ BEGIN {
 }
 
 END {
+    if (dup_forced > 0) {
+        msg = "⚠️ Duplicate forced entries detected: " dup_forced
+        print msg
+
+        for (p in dup_list) {
+            warn = "   - " p
+            print warn
+        }
+    }
+
     if (suffix == "?")
         print "   * Active Mode: GLOBAL LEAF_HACK"
     else if (suffix == "!")
@@ -226,7 +245,9 @@ END {
     print "   * Tagged:   " cnt_tagged
     print "   * Total:    " cnt_total
 }
-' | while read -r line; do ui_print "$line"; done
+' | while read -r line; do
+    ui_print "$line"
+done
 sleep_ui 0.7
 
 # --- 3. Finalize ---
@@ -253,7 +274,7 @@ echo "------------------------------------------------"
 ui_print "-> Success! Package list generated ✅"
 ui_print "-> Review $TARGET_FILE"
 echo "************************************************"
-
+ui_print "Finished!"
 # --- Smart Exit Logic ---
 
 # Magisk Check: Exit immediately if Magisk SU is running.
