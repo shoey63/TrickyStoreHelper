@@ -1,29 +1,19 @@
 #!/system/bin/sh
-# monitor.sh - Smart Differential Updater (uses pm list)
+# monitor.sh
 
 MODDIR=${0%/*}
-
-TS_FOLDER="/data/adb/tricky_store"
-
-# Module-local helper (aligned with customize/action/service)
 HELPER_FOLDER="$MODDIR/helper"
 
+TS_FOLDER="/data/adb/tricky_store"
 TARGET_FILE="$TS_FOLDER/target.txt"
+
 EXCLUDE_FILE="$HELPER_FOLDER/exclude.txt"
 CONFIG_FILE="$HELPER_FOLDER/config.txt"
 LOG_FILE="$HELPER_FOLDER/TSHelper.log"
 
-# Ensure helper/log exist (safe on boot)
-mkdir -p "$HELPER_FOLDER"
-touch "$LOG_FILE"
-
-# UI Logger
 log_print() { echo "$(date '+%T') Monitor: $1" >> "$LOG_FILE"; }
 
-# --- 1. Settle Down ---
 sleep 5
-
-# Check requirements
 [ -f "$TARGET_FILE" ] || exit 0
 
 # --- 2. Setup Unique Temp Files ---
