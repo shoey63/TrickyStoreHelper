@@ -1,13 +1,14 @@
 #!/system/bin/sh
 #
-# action.sh - TrickyStoreHelper (Module-local helper edition)
+# action.sh - TrickyStore Helper (module-local helper edition)
 #
 MODDIR=${0%/*}
 
 # --- 1. Setup & Config ---
+
 TS_FOLDER="/data/adb/tricky_store"
 
-# Module-local helper directory
+# Must match customize.sh
 HELPER_DIR="$MODDIR/helper"
 
 CONFIG_FILE="$HELPER_DIR/config.txt"
@@ -15,20 +16,18 @@ EXCLUDE_FILE="$HELPER_DIR/exclude.txt"
 FORCE_FILE="$HELPER_DIR/force.txt"
 LOG_FILE="$HELPER_DIR/TSHelper.log"
 
-# TrickyStore runtime target (unchanged)
 TARGET_FILE="$TS_FOLDER/target.txt"
 
 # Detect Boot Mode immediately
 IS_BOOT="false"
 [ "$1" = "boot" ] && IS_BOOT="true"
 
-# Smart Sleep Function: Skips delays if running on boot
 sleep_ui() {
     [ "$IS_BOOT" = "true" ] && return
     sleep "$1"
 }
 
-# Ensure Tricky Store is installed
+# Ensure TrickyStore exists
 if [ ! -d "$TS_FOLDER" ]; then
     echo " "
     echo " ❌FATAL❌: TrickyStore folder not found at:"
@@ -42,17 +41,16 @@ if [ ! -d "$TS_FOLDER" ]; then
     exit 1
 fi
 
-# Ensure helper folder exists
+# Ensure helper structure exists
 mkdir -p "$HELPER_DIR"
 touch "$EXCLUDE_FILE" "$FORCE_FILE" "$LOG_FILE"
 
-# UI Functions
 ui_print() {
     echo "$1"
     echo "$(date '+%T') UI: $1" >> "$LOG_FILE"
 }
 
-# Log Boot Mode if active
+# Log boot mode
 if [ "$IS_BOOT" = "true" ]; then
     echo "$(date '+%T') UI: 🚀 Boot mode detected. Sleep commands disabled." >> "$LOG_FILE"
 fi
@@ -64,12 +62,12 @@ echo "================================================"
 echo " "
 sleep_ui 0.5
 
-# Load Config
+# --- Load Config ---
+
 grep_conf() {
     grep "^$1=" "$CONFIG_FILE" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]'
 }
 
-# Defaults
 FORCE_LEAF="false"
 FORCE_CERT="false"
 USE_DEF_EXCL="true"
@@ -80,7 +78,7 @@ USE_DEF_EXCL="true"
     USE_DEF_EXCL=$(grep_conf "USE_DEFAULT_EXCLUSIONS")
 }
 
-# Conflict Resolution
+# Conflict guard
 if [ "$FORCE_LEAF" = "true" ] && [ "$FORCE_CERT" = "true" ]; then
     echo " "
     ui_print "🚨  WARNING - INVALID CONFIGURATION DETECTED  🚨"
@@ -90,24 +88,18 @@ if [ "$FORCE_LEAF" = "true" ] && [ "$FORCE_CERT" = "true" ]; then
     ui_print "  in: $CONFIG_FILE"
     echo " "
     sleep_ui 0.7
-    ui_print "This run will proceed with both flags set to"
-    ui_print "FALSE in memory only."
-    echo " "
-    sleep_ui 0.7
-    ui_print "You must set at least one flag to FALSE"
-    echo " "
+    ui_print "Flags forced to FALSE for this run."
     echo "------------------------------------------------"
     FORCE_LEAF="false"
     FORCE_CERT="false"
     sleep_ui 3
 fi
 
-# Determine Suffix
 SUFFIX=""
 [ "$FORCE_LEAF" = "true" ] && SUFFIX="?"
 [ "$FORCE_CERT" = "true" ] && SUFFIX="!"
 
-# --- 2. The Stream Processor ---
+# --- 2. Stream Processor ---
 
 ui_print "-> Generating and processing list..."
 sleep_ui 0.7
@@ -127,7 +119,6 @@ generate_stream | awk \
 -v excl_file="$EXCLUDE_FILE" \
 -v force_file="$FORCE_FILE" \
 -v target_file="$TARGET_FILE" \
--v log_file="$LOG_FILE" \
 '
 function clean(s,   suffix, base, rest) {
     gsub(/\r/, "", s)
@@ -139,7 +130,6 @@ function clean(s,   suffix, base, rest) {
     rest = substr(s, RLENGTH + 1)
 
     suffix = ""
-
     if (match(rest, /^[ \t]*[?!]/))
         suffix = substr(rest, RSTART + RLENGTH - 1, 1)
 
@@ -185,8 +175,6 @@ BEGIN {
         print raw >> target_file
 
         seen[pkg]=1
-        forced[pkg]=1
-
         if (raw ~ /[?!]$/) cnt_tagged++
         cnt_total++
     }
@@ -249,6 +237,7 @@ done
 sleep_ui 0.7
 
 # --- 3. Finalize ---
+
 echo "------------------------------------------------"
 ui_print "-> Restarting services..."
 sleep_ui 0.7
@@ -273,9 +262,7 @@ echo "************************************************"
 ui_print "Finished!"
 
 case "$(su -v 2>/dev/null)" in
-    *MAGISK*|*magisk*)
-        exit 0
-        ;;
+    *MAGISK*|*magisk*) exit 0 ;;
 esac
 
 echo " "
