@@ -120,11 +120,25 @@ generate_stream | awk \
 -v force_file="$FORCE_FILE" \
 -v target_file="$TARGET_FILE" \
 '
-function clean(s) {
-    sub(/#.*/, "", s)            # strip inline comments
+function clean(s,   suffix, base, rest) {
     gsub(/\r/, "", s)
-    gsub(/^[ \t]+|[ \t]+$/, "", s)
-    return s
+
+    # match package name only
+    if (!match(s, /^[ \t]*[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+/))
+        return ""
+
+    base = substr(s, RSTART, RLENGTH)
+    rest = substr(s, RLENGTH + 1)
+
+    suffix = ""
+
+    # check for optional space + suffix
+    if (match(rest, /^[ \t]*[?!]/))
+        suffix = substr(rest, RSTART + RLENGTH - 1, 1)
+
+    sub(/[. \t]+$/, "", base)
+
+    return base suffix
 }
 
 function valid_pkg(s) {
