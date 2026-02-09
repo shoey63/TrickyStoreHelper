@@ -120,22 +120,28 @@ generate_stream | LC_ALL=C sort -u | awk \
 -v force_file="$FORCE_FILE" \
 -v target_file="$TARGET_FILE" \
 '
-function clean(s,   suffix, base, rest) {
+function clean(s,   base, suf) {
     gsub(/\r/, "", s)
 
-    if (!match(s, /^[ \t]*[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+/))
+    # Strip inline comments
+    sub(/[ \t]*#.*/, "", s)
+
+    # Trim whitespace
+    gsub(/^[ \t]+|[ \t]+$/, "", s)
+
+    # Extract optional suffix
+    suf = ""
+    if (s ~ /[?!]$/) {
+        suf = substr(s, length(s), 1)
+        s = substr(s, 1, length(s)-1)
+        gsub(/[ \t]+$/, "", s)
+    }
+
+    # Reject if not a full valid package
+    if (!valid_pkg(s))
         return ""
 
-    base = substr(s, RSTART, RLENGTH)
-    rest = substr(s, RLENGTH + 1)
-
-    suffix = ""
-    if (match(rest, /^[ \t]*[?!]/))
-        suffix = substr(rest, RSTART + RLENGTH - 1, 1)
-
-    sub(/[. \t]+$/, "", base)
-
-    return base suffix
+    return s suf
 }
 
 function valid_pkg(s) {
@@ -157,8 +163,13 @@ BEGIN {
     close(excl_file)
 
     while ((getline line < force_file) > 0) {
+        orig = line
         raw = clean(line)
-        if (raw == "") continue
+        if (raw == "") {
+    if (orig !~ /^[ \t]*#/ && orig !~ /^[ \t]*$/)
+        invalid[orig]++
+        continue
+     }
 
         pkg = raw
         if (raw ~ /[?!]$/)
@@ -217,6 +228,12 @@ END {
         print "⚠️ Duplicate forced entries detected: " dup_forced
         for (p in dup_list)
             print "   - " p
+    }
+    
+    if (length(invalid) > 0) {
+        print "⚠️ Invalid lines ignored:"
+        for (i in invalid)
+             print "   - " i
     }
 
     if (suffix == "?")
