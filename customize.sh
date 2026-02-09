@@ -25,18 +25,33 @@ fi
 ui_print "- Preparing TrickyStore Helper..."
 
 # ------------------------------------------------------------------------------
-# 2. CONFIG RESTORATION (EXACT preserved logic)
+# 2. CONFIG RESTORATION AND MIGRATION
 # ------------------------------------------------------------------------------
 
-if [ -d "$LIVE_PATH/helper" ] && [ "$(ls -A "$LIVE_PATH/helper")" ]; then
-    ui_print "  - Preserving existing helper folder"
+OLD_HELPER="/data/adb/tricky_store/helper"
+LIVE_HELPER="/data/adb/modules/trickystorehelper/helper"
 
-    # A. Delete packaged defaults
-    rm -rf "$MODPATH/helper"
+# Priority 1: Migrate old legacy helper folder
+if [ -d "$OLD_HELPER" ] && [ "$(ls -A "$OLD_HELPER" 2>/dev/null)" ]; then
+    ui_print "  - Migrating legacy helper folder"
 
-    # B. Copy user's helper folder
-    cp -af "$LIVE_PATH/helper" "$MODPATH/"
+    rm -rf "$HELPER_DIR"
+    mkdir -p "$HELPER_DIR"
+    cp -af "$OLD_HELPER"/. "$HELPER_DIR"/
+
+    # Clean up old location after successful migration
+    rm -rf "$OLD_HELPER"
+
+# Priority 2: Preserve existing module helper
+elif [ -d "$LIVE_HELPER" ] && [ "$(ls -A "$LIVE_HELPER" 2>/dev/null)" ]; then
+    ui_print "  - Preserving existing helper config"
+
+    rm -rf "$HELPER_DIR"
+    mkdir -p "$HELPER_DIR"
+    cp -af "$LIVE_HELPER"/. "$HELPER_DIR"/
 fi
+
+# Priority 3: Otherwise use helper folder from zip (no action needed)
 
 # ------------------------------------------------------------------------------
 # 3. Directory Setup
