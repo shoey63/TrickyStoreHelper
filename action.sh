@@ -114,7 +114,7 @@ generate_stream() {
 
 : > "$TARGET_FILE"
 
-generate_stream | awk \
+generate_stream | LC_ALL=C sort -u | awk \
 -v suffix="$SUFFIX" \
 -v excl_file="$EXCLUDE_FILE" \
 -v force_file="$FORCE_FILE" \
