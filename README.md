@@ -1,112 +1,217 @@
 # TrickyStore Helper
 
-**A helper module for [TrickyStore](https://github.com/5ec1cff/TrickyStore) to automatically generate and manage `target.txt`.**
+**A helper module for [TrickyStore](https://github.com/5ec1cff/TrickyStore) that automatically generates and maintains `target.txt`.**
 
-> **Note:** This is an enhanced fork of [CaptainThrowback's original helper](https://github.com/CaptainThrowback/TrickyStoreHelper), optimized for speed and compatibility with KernelSU, APatch, and Magisk.
+> Enhanced fork of CaptainThrowback's original helper, optimized for Magisk, KernelSU and APatch with a live monitor daemon and robust config preservation.
 
-## ✨ Features (from v0.4.0+)
+---
 
-* **👁️ Live Monitor Daemon:**
-    * Instantly detects when you install a new app.
-    * Appends it to `target.txt` and restarts TrickyStore automatically.
-    * **Smart Logic:** Respects your `exclude.txt` and ignores system updates.
-    * **Conflict-Free:** Only adds *missing* apps. It never touches your existing entries or custom suffixes (`?`/`!`).
-* **🎮 Interactive Control Panel:**
-    * Run the service script in a terminal to view status, stop, or start the daemon.
-* **🛡️ "Set & Forget" Architecture:**
-    * **Zero Battery Drain:** Uses event-driven `inotifyd` (sleeps until an app is installed).
-    * **Keep-Alive:** Automatically recovers if the system rotates package logs.
-* **⚡ Optimized Generator:**
-    * High-speed generation logic compatible with Magisk, KernelSU, and APatch.
-* **🔒 Atomic Boot Lock:**
-    * Prevents double-execution race conditions during boot on all root solutions.
+## ✨ Features
+
+### 👁️ Live Monitor Daemon
+- Instantly detects newly installed apps
+- Appends them to `target.txt`
+- Automatically restarts required services
+- Respects exclusions and never duplicates entries
+- Event-driven (`inotifyd`) → zero idle battery drain
+
+### 🧠 Smart Target Generator
+- High-speed stream pipeline (pm → sort → awk)
+- Alphabetically sorted discovered apps
+- Forced entries preserve manual order
+- Split output structure for readability:
+  - **Forced section**
+  - **Discovered apps section**
+
+### ⚠️ Error Detection & Reporting
+- Duplicate forced entries detected and reported
+- Invalid package lines are ignored and logged
+- Clear UI + log summaries after each generation
+
+### 🎮 Interactive Control Panel
+Run `service.sh` in a terminal to:
+
+- View daemon status
+- Start/stop the live monitor
+- Inspect watcher PIDs
+
+### 🛡️ Upgrade-Safe Configuration
+- User config is preserved across reinstalls
+- Automatic migration from legacy helper location
+- Module-local configuration (no external dependency)
+
+### 🔒 Atomic Boot Lock
+Prevents race conditions during boot on all supported root solutions.
+
+---
 
 ## 📦 Installation
 
-1.  Ensure **TrickyStore** is already installed.
-2.  Flash `TrickyStoreHelper_v0.4.0.zip` in your root manager (Magisk/KSU/APatch).
-3.  Reboot.
+1. Install **TrickyStore** first
+2. Flash `TrickyStoreHelper_v1.1.2.zip` in Magisk / KernelSU / APatch
+3. Reboot
+
+### First-run behavior (important)
+
+On installation, **all user apps are added to `exclude.txt` by default**.
+
+This means the module starts in a safe **opt-in mode**:
+
+- Apps listed in `exclude.txt` are *not* added to `target.txt`
+- To include an app, simply **comment it out** in `exclude.txt`
+- The monitor will then treat it as eligible for discovery
+
+Upgrading over an existing install preserves your configuration automatically.
+
+---
+
+## 📂 File Locations (Breaking Change in v1.1.x)
+
+### New helper directory
+
+```
+/data/adb/modules/trickystorehelper/helper/
+```
+
+All configuration and logs now live **inside the module folder**.
+
+### Legacy migration
+
+On upgrade, the installer will:
+
+1. Migrate from `/data/adb/tricky_store/helper` if present
+2. Fall back to the existing module helper folder
+3. Otherwise use the default files from the zip
+
+The legacy folder is removed after migration.
+
+---
 
 ## 🛠️ Usage
 
-### 1. Automatic (Live Monitor)
+### Automatic (Live Monitor)
+
 Just use your phone normally.
-* **Install an App:** The Live Monitor sees it, adds it to `target.txt`, and reloads the store.
-* **Uninstall an App:** The entry remains (safe) until you decide to clean it up manually.
 
-### 2. Manual Cleanup (Action Button)
-If you want to remove uninstalled apps or force global suffixes:
-* Open your Root Manager (Magisk, KernelSU, or APatch).
-* Go to the **Modules** tab.
-* Tap the **Action** button on the TrickyStore Helper card.
+- Install an app → it is detected and appended
+- Services restart automatically
+- No manual action required
 
-### 3. The Control Panel (Terminal)
-You can manage the background service manually via Termux or ADB:
+Uninstalled apps remain in `target.txt` until manually cleaned.
+
+---
+
+### Manual Regeneration (Action Button)
+
+In your root manager:
+
+Modules → TrickyStore Helper → **Action**
+
+This rebuilds `target.txt` and prints a summary.
+
+---
+
+### Terminal Control Panel
 
 ```bash
 su -c sh /data/adb/modules/trickystorehelper/service.sh
 ```
 
-This opens the interactive menu:
+Example:
+
 ```text
 ========================================
-   TrickyStore Helper - Control Panel   
+   TrickyStore Helper - Control Panel
 ========================================
  STATUS:  🟢 RUNNING
  Watcher: 12345
  Loop:    12340
 ========================================
- Do you want to STOP the service? (y/n): 
+ Do you want to STOP the service? (y/n):
 ```
+
+---
+
+## 🧾 target.txt Structure
+
+Generated output is split into two sections:
+
+```
+🛠️ End of Forced List 🛠️
+
+🔎 Discovered Apps 🔎
+```
+
+- **Forced section** preserves your curated order
+- **Discovered apps** are alphabetically sorted
+- Suffix rules (`?` / `!`) are respected
+
+---
 
 ## ⚙️ Configuration
 
-The configuration files are located at:
-`/data/adb/tricky_store/helper/`
+All config lives in:
 
-| File | Description |
-| :--- | :--- |
-| **`config.txt`** | Main settings file. |
-| **`exclude.txt`** | List of package names to **always ignore** (remove from `target.txt`). Prexfixing with # will add them back. |
-| **`force.txt`** | List of package names to **always include** (even if not installed). Prefixing with # will remove them. |
-| **`TSHelper.log`** | Execution logs and debug info. |
+```
+/data/adb/modules/trickystorehelper/helper/
+```
 
-**NOTE:** Do *not* comment out entries in `target.txt`, they will get re-added by the ***Live Monitor*** Use `exclude.txt` instead.
+| File | Purpose |
+|------|--------|
+| `config.txt` | Main behavior settings |
+| `exclude.txt` | Packages that must never be added |
+| `force.txt` | Packages always included |
+| `TSHelper.log` | Execution logs and diagnostics |
 
+> Do not edit `target.txt` directly for exclusions — use `exclude.txt`.
 
-### `config.txt` Options
+---
+
+### config.txt Options
 
 | Option | Default | Description |
-| :--- | :--- | :--- |
-| `RUN_ON_BOOT` | `true` | If `true`, regenerates the full list on every boot. Set to `false` to preserve manual edits across reboots (Monitor still runs). |
-| `USE_DEFAULT_EXCLUSIONS` | `true` | Excludes system apps, keeps user apps & GMS. |
-| `FORCE_LEAF_HACK` | `false` | **Generator Only:** Appends `?` to all packages (Soft bypass) during full rebuilds. |
-| `FORCE_CERT_GEN` | `false` | ** Only:** Appends `!` to all packagesGenerator (Hard bypass) during full rebuilds. |
+|--------|--------|-------------|
+| `RUN_ON_BOOT` | true | Regenerate full list on boot |
+| `USE_DEFAULT_EXCLUSIONS` | true | Exclude system apps by default |
+| `FORCE_LEAF_HACK` | false | Append `?` globally during rebuild |
+| `FORCE_CERT_GEN` | false | Append `!` globally during rebuild |
+
+---
 
 ## 📝 Changelog
 
+### v1.1.3
+
+- **Breaking:** Helper folder moved inside module directory
+- Automatic migration from legacy helper path
+- User apps initially added to exclude.txt. Simply comment out the apps you want in `target.txt`
+- Split `target.txt` into forced + discovered sections
+- Alphabetical sorting for discovered apps
+- Duplicate detection and invalid line reporting
+- Improved installer config preservation
+- Hardened pipeline and logging
+
 ### v1.0.0
 
-Bump pre-release 0.4.1 to release 1.0.0
+- First stable release
 
-### v0.4.1
-Enabled commenting out (#) of entries in `exclude.txt` and `force.txt`
+### v0.4.x
 
-### v0.4.0: The "Set & Forget" Update
-This major release introduces a zero-configuration **Live Monitor**, changing how you manage your `target.txt`.
-* **New:** **Live Monitor Daemon** - Watches for new app installs and adds them instantly.
-* **New:** **Interactive Control Panel** - Run `service.sh` in terminal to manage the daemon.
-* **New:** **Differential Update** - Only adds *missing* apps; never duplicates or touches existing entries.
-* **Improved:** **Service Persistence** - Daemon automatically recovers if the system rotates package logs (Keep-Alive).
-* **Fixed:** **Race Conditions** - Added settlement delays to prevent "ghost" additions during uninstalls.
+- Introduced Live Monitor daemon
+- Interactive control panel
+- Differential update logic
+- Boot race condition fixes
 
-### v0.3.1
-* **Critical Fix:** Added `grep` filter to ignore "Failure calling service" errors polluting the stream on APatch.
-* **New:** Implemented atomic locking (`mkdir`) to prevent double-execution on boot.
-* **New:** Added `RUN_ON_BOOT` config option to optionally skip boot generation.
-* **Improvement:** Startup logic now verifies TrickyStore folder existence before creating helper files.
+---
 
-### v0.3.0
-* **New Engine:** Rewrote generation logic using a stream processor (`Pipe` -> `Sort` -> `Awk`) for massive performance gains.
-* **UI:** Added Action Button support with live status output.
-* **Boot:** Optimized boot script with permission auto-fixer.
+## ❤️ Credits
+
+- Original helper by CaptainThrowback
+- TrickyStore by 5ec1cff
+- Community testing and feedback
+
+---
+
+## ⚠️ Disclaimer
+
+Use at your own risk. This tool modifies TrickyStore configuration automatically. Always keep backups if you rely on a custom setup.
