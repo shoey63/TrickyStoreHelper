@@ -1,6 +1,6 @@
 #!/system/bin/sh
 #
-# action.sh - TrickyStore Helper (module-local helper edition)
+# action.sh - TrickyStore Helper
 #
 MODDIR=${0%/*}
 
@@ -62,7 +62,7 @@ echo "================================================"
 echo " "
 sleep_ui 0.5
 
-# --- Load Config ---
+# --- 2. Load Config ---
 
 grep_conf() {
     grep "^$1=" "$CONFIG_FILE" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]'
@@ -99,7 +99,7 @@ SUFFIX=""
 [ "$FORCE_LEAF" = "true" ] && SUFFIX="?"
 [ "$FORCE_CERT" = "true" ] && SUFFIX="!"
 
-# --- 2. Stream Processor ---
+# --- 3. Stream Processor ---
 
 ui_print "-> Generating and processing list..."
 sleep_ui 0.7
@@ -175,8 +175,6 @@ BEGIN {
         if (raw ~ /[?!]$/)
             pkg = substr(raw, 1, length(raw)-1)
 
-        if (!valid_pkg(pkg)) continue
-
         if (pkg in seen) {
             dup_forced++
             dup_list[pkg]++
@@ -224,10 +222,10 @@ BEGIN {
 }
 
 END {
-    if (dup_forced > 0) {
-        print "⚠️ Duplicate forced entries detected: " dup_forced
-        for (p in dup_list)
-            print "   - " p
+   if (dup_forced > 0) {
+       print "⚠️ Duplicate forced entries detected:"
+       for (p in dup_list)
+        print "   - " p
     }
     
     if (length(invalid) > 0) {
@@ -253,7 +251,7 @@ done
 
 sleep_ui 0.7
 
-# --- 3. Finalize ---
+# --- 4. Finalize ---
 
 echo "------------------------------------------------"
 ui_print "-> Restarting services..."
