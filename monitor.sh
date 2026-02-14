@@ -8,13 +8,21 @@ TS_FOLDER="/data/adb/tricky_store"
 TARGET_FILE="$TS_FOLDER/target.txt"
 
 EXCLUDE_FILE="$HELPER_FOLDER/exclude.txt"
+FORCE_FILE="$HELPER_FOLDER/force.txt"
 CONFIG_FILE="$HELPER_FOLDER/config.txt"
 LOG_FILE="$HELPER_FOLDER/TSHelper.log"
 
 log_print() { echo "$(date '+%T') Monitor: $1" >> "$LOG_FILE"; }
 
 sleep 5
-[ -f "$TARGET_FILE" ] || exit 0
+# Wait until package database stops changing
+SNAP1=$(pm list packages | wc -l)
+sleep 2
+SNAP2=$(pm list packages | wc -l)
+
+if [ "$SNAP1" != "$SNAP2" ]; then
+    sleep 3
+fi
 
 # --- 2. Setup Unique Temp Files ---
 PID=$$
@@ -58,9 +66,23 @@ generate_candidates() {
 : > "$RESULTS_FILE"
 
 generate_candidates | sort -u | while read -r pkg; do
-    if ! grep -F -x -q "$pkg" "$CLEAN_TARGET"; then
+        if ! grep -F -x -q "$pkg" "$CLEAN_TARGET"; then
         if ! grep -F -x -q "$pkg" "$CLEAN_EXCLUDE"; then
-            echo "$pkg" >> "$RESULTS_FILE"
+            
+            # --- FIX: Check force.txt for suffixes (! or ?) ---
+            FORCED_ENTRY=""
+            if [ -f "$FORCE_FILE" ]; then
+                # Find line starting with package name (e.g., com.app!)
+                FORCED_ENTRY=$(grep "^$pkg" "$FORCE_FILE" 2>/dev/null | head -n 1)
+            fi
+
+            if [ -n "$FORCED_ENTRY" ]; then
+                echo "$FORCED_ENTRY" >> "$RESULTS_FILE"
+            else
+                echo "$pkg" >> "$RESULTS_FILE"
+            fi
+            # --------------------------------------------------
+
         fi
     fi
 done
@@ -82,7 +104,15 @@ if [ "$cnt" -gt 0 ]; then
         exit 1
     fi
 
-    log_print "Detected $cnt new app(s). Appending..."
+        log_print "Detected $cnt new app(s). Appending..."
+
+    # --- FIX: Ensure target.txt ends with a newline ---
+    # tail -c 1 returns the last byte. Command substitution $(...) strips trailing newlines.
+    # If the file ends with \n, $(...) becomes empty. If it ends with char, it is non-empty.
+    if [ -s "$TARGET_FILE" ] && [ -n "$(tail -c 1 "$TARGET_FILE")" ]; then
+        echo "" >> "$TARGET_FILE"
+    fi
+    # --------------------------------------------------
 
     echo "$NEW_APPS" >> "$TARGET_FILE"
 
