@@ -54,7 +54,9 @@ start_daemon_logic() {
 
     while true; do
         if command -v inotifyd >/dev/null 2>&1; then
-            inotifyd "$MONITOR_SCRIPT" "$PKG_FILE:ycdn"
+            # CHANGE: Monitor y (Moved To), w (Close Write), n (Create)
+            # Old: inotifyd "$MONITOR_SCRIPT" "$PKG_FILE:ycdn"
+            inotifyd "$MONITOR_SCRIPT" "$PKG_FILE:ywn"
             sleep 5
         else
             log_ui "⚠️ 'inotifyd' not found. Retrying in 30s..."
