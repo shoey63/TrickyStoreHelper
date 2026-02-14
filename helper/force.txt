@@ -1,6 +1,1 @@
-# TrickyStore Helper — Forced packages
-# Add ? or ! suffixes as desired
-# Comment out to remove from target.txt
 
-com.google.android.gms
-com.android.vending
