@@ -130,5 +130,6 @@ fi
 
 stop_daemon
 ( start_daemon_logic "Boot" ) &
+echo $! > "$PID_FILE"
 
 exit 0
