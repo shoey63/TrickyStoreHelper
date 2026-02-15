@@ -46,7 +46,11 @@ tr -d '\r' < "$TARGET_FILE" | sed 's/[ \t]*[?!]*[ \t]*$//' > "$CLEAN_TARGET"
 
 # Clean exclude
 if [ -f "$EXCLUDE_FILE" ]; then
-    tr -d '\r' < "$EXCLUDE_FILE" | sed 's/^[ \t]*//;s/[ \t]*$//' > "$CLEAN_EXCLUDE"
+    tr -d '\r' < "$EXCLUDE_FILE" \
+| sed 's/[ \t]*#.*$//' \
+| sed 's/^[ \t]*//;s/[ \t]*$//' \
+| grep -v '^$' \
+> "$CLEAN_EXCLUDE"
 else
     : > "$CLEAN_EXCLUDE"
 fi
@@ -105,16 +109,25 @@ if [ "$cnt" -gt 0 ]; then
     fi
 
         log_print "Detected $cnt new app(s). Appending..."
+        
+# --- Ensure target.txt ends with exactly one newline ---
+if [ -s "$TARGET_FILE" ]; then
+    last_char=$(tail -c 1 "$TARGET_FILE")
+    [ -n "$last_char" ] && echo "" >> "$TARGET_FILE"
+fi
 
-    # --- FIX: Ensure target.txt ends with a newline ---
-    # tail -c 1 returns the last byte. Command substitution $(...) strips trailing newlines.
-    # If the file ends with \n, $(...) becomes empty. If it ends with char, it is non-empty.
-    if [ -s "$TARGET_FILE" ] && [ -n "$(tail -c 1 "$TARGET_FILE")" ]; then
-        echo "" >> "$TARGET_FILE"
-    fi
-    # --------------------------------------------------
+# --- Add a single separator blank line (only if needed) ---
+# Prevents runaway blank lines on repeated runs
+if [ -s "$TARGET_FILE" ] && [ "$(tail -n 1 "$TARGET_FILE")" != "" ]; then
+    echo "" >> "$TARGET_FILE"
+fi
 
-    echo "$NEW_APPS" >> "$TARGET_FILE"
+# --- Append new apps with spacing ---
+while read -r app; do
+    [ -z "$app" ] && continue
+    echo "$app" >> "$TARGET_FILE"
+    echo "" >> "$TARGET_FILE"
+done < "$RESULTS_FILE"
 
     clean_log=$(echo "$NEW_APPS" | tr '\n' ' ')
     log_print "Added: $clean_log"
