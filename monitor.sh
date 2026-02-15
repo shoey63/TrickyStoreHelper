@@ -108,26 +108,24 @@ if [ "$cnt" -gt 0 ]; then
         exit 1
     fi
 
-        log_print "Detected $cnt new app(s). Appending..."
-        
-# --- Ensure target.txt ends with exactly one newline ---
-if [ -s "$TARGET_FILE" ]; then
-    last_char=$(tail -c 1 "$TARGET_FILE")
-    [ -n "$last_char" ] && echo "" >> "$TARGET_FILE"
+    log_print "Detected $cnt new app(s). Appending..."
+
+   HEADER="🔎 Newly installed apps (Review) 🔎"
+
+# --- Add header only if missing ---
+if ! grep -F -q "$HEADER" "$TARGET_FILE"; then
+    # Ensure exactly one blank separator before header
+    last_line=$(tail -n 1 "$TARGET_FILE" 2>/dev/null)
+
+    if [ -n "$last_line" ]; then
+        echo "" >> "$TARGET_FILE"
+    fi
+
+    echo "$HEADER" >> "$TARGET_FILE"
 fi
 
-# --- Add a single separator blank line (only if needed) ---
-# Prevents runaway blank lines on repeated runs
-if [ -s "$TARGET_FILE" ] && [ "$(tail -n 1 "$TARGET_FILE")" != "" ]; then
-    echo "" >> "$TARGET_FILE"
-fi
-
-# --- Append new apps with spacing ---
-while read -r app; do
-    [ -z "$app" ] && continue
-    echo "$app" >> "$TARGET_FILE"
-    echo "" >> "$TARGET_FILE"
-done < "$RESULTS_FILE"
+# --- Append new apps directly (no extra blank lines) ---
+    cat "$RESULTS_FILE" >> "$TARGET_FILE"
 
     clean_log=$(echo "$NEW_APPS" | tr '\n' ' ')
     log_print "Added: $clean_log"
