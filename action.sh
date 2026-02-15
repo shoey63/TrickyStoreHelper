@@ -37,7 +37,7 @@ if [ ! -d "$TS_FOLDER" ]; then
     echo " 🚨Please install TrickyStore first.🚨"
     echo " "
     echo " Closing in 5 seconds..."
-    sleep 7
+    sleep_ui 7
     exit 1
 fi
 
