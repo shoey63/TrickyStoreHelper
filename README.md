@@ -48,7 +48,7 @@ Prevents race conditions during boot on all supported root solutions.
 ## 📦 Installation
 
 1. Install **TrickyStore** first
-2. Flash `TrickyStoreHelper_v1.1.2.zip` in Magisk / KernelSU / APatch
+2. Flash `TrickyStoreHelper_v1.1.8.zip` in Magisk / KernelSU / APatch
 3. Reboot
 
 ### First-run behavior (important)
@@ -81,7 +81,7 @@ On upgrade, the installer will:
 
 1. Migrate from `/data/adb/tricky_store/helper` if present
 2. Fall back to the existing module helper folder
-3. Otherwise use the default files from the zip
+3. Otherwise create the default helper folder and config files.
 
 The legacy folder is removed after migration.
 
@@ -134,17 +134,21 @@ Example:
 
 ## 🧾 target.txt Structure
 
-Generated output is split into two sections:
+Generated output is split into three sections:
 
 ```
 🛠️ End of Forced List 🛠️
 
 🔎 Discovered Apps 🔎
+
+🔎 Newly Installed Apps (Review) 🔎
+
 ```
 
 - **Forced section** preserves your curated order
 - **Discovered apps** are alphabetically sorted
 - Suffix rules (`?` / `!`) are respected
+- **Newly Installed Apps (Review)** Listed separately after discovered apps for review until next action.sh run.
 
 ---
 
@@ -180,12 +184,13 @@ All config lives in:
 
 ## 📝 Changelog
 
-### v1.1.3
+### v1.1.8
 
 - **Breaking:** Helper folder moved inside module directory
 - Automatic migration from legacy helper path
 - User apps initially added to exclude.txt. Simply comment out the apps you want in `target.txt`
 - Split `target.txt` into forced + discovered sections
+- Newly installed apps listed separately after discovered apps for review until next action.sh run.
 - Alphabetical sorting for discovered apps
 - Duplicate detection and invalid line reporting
 - Improved installer config preservation
@@ -204,14 +209,14 @@ All config lives in:
 
 ---
 
-## ❤️ Credits
+## Credits
 
 - Original helper by CaptainThrowback
 - TrickyStore by 5ec1cff
-- Community testing and feedback
+- 90% of this code was written by Gemini; the other 10% is the part that actually works.
 
 ---
 
 ## ⚠️ Disclaimer
 
-Use at your own risk. This tool modifies TrickyStore configuration automatically. Always keep backups if you rely on a custom setup.
+Use at your own risk. This tool modifies TrickyStore configuration automatically.
