@@ -1,6 +1,6 @@
 id=trickystorehelper
 name=TrickyStore Helper
-version=v1.0.0
-versionCode=1000
+version=v1.1.8
+versionCode=1108
 author=shoey63 (based on work by Captain_Throwback)
 description=Enhanced TrickyStore Helper — automatically updates target.txt at boot or via action button, supports user+system apps, and force modes for spoofing.
