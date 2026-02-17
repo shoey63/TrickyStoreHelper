@@ -52,8 +52,15 @@ fi
 # 3. SEEDING & REPAIR (Ensures files are valid)
 # ------------------------------------------------------------------------------
 
-# --- Exclude List (User Choice) ---
-# Only create if physically MISSING. If it exists but is empty, leave it be.
+# Helper function: Returns true if file is missing OR has no letters/numbers
+is_broken() {
+    [ ! -f "$1" ] && return 0
+    ! grep -q '[[:alnum:]]' "$1"
+}
+
+# --- 1. Exclude List (Respect User Silence) ---
+# We ONLY create this if the file is physically missing.
+# If it exists but is just whitespace/empty, we leave it alone.
 if [ ! -f "$EXCLUDE_FILE" ]; then
     ui_print "    * Creating new exclude.txt..."
     {
@@ -64,9 +71,9 @@ if [ ! -f "$EXCLUDE_FILE" ]; then
     } > "$EXCLUDE_FILE"
 fi
 
-# --- Force List (Requirement) ---
-# Create if missing OR empty.
-if [ ! -s "$FORCE_FILE" ]; then
+# --- 2. Force List (Ensure Functional) ---
+# If it's missing or just a "ghost" file (no text), populate it.
+if is_broken "$FORCE_FILE"; then
     ui_print "    * Seeding force.txt..."
     cat <<EOF > "$FORCE_FILE"
 # TrickyStore Helper — Forced packages
@@ -75,9 +82,9 @@ com.android.vending
 EOF
 fi
 
-# --- Config File (Requirement) ---
-# Create if missing OR empty.
-if [ ! -s "$CONFIG_FILE" ]; then
+# --- 3. Config File (Ensure Functional) ---
+# If it's missing or just a "ghost" file (no text), populate it.
+if is_broken "$CONFIG_FILE"; then
     ui_print "    * Seeding config.txt..."
     cat <<EOF > "$CONFIG_FILE"
 FORCE_LEAF_HACK=false
@@ -86,6 +93,7 @@ USE_DEFAULT_EXCLUSIONS=true
 RUN_ON_BOOT=true
 EOF
 fi
+
 
 # ------------------------------------------------------------------------------
 # 4. Final Permissions
